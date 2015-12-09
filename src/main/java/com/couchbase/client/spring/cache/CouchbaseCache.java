@@ -128,6 +128,7 @@ public class CouchbaseCache implements Cache {
    *
    * @return the name of the cache.
    */
+  @Override
   public final String getName() {
     return name;
   }
@@ -137,6 +138,7 @@ public class CouchbaseCache implements Cache {
    *
    * @return the underlying Bucket instance.
    */
+  @Override
   public final Bucket getNativeCache() {
     return client;
   }
@@ -150,12 +152,7 @@ public class CouchbaseCache implements Cache {
 	  return ttl;
   }
 
-  /**
-   * Get an element from the cache.
-   *
-   * @param key the key to lookup against.
-   * @return the fetched value from Couchbase.
-   */
+  @Override
   public final ValueWrapper get(final Object key) {
     String documentId = getDocumentId(key.toString());
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
@@ -168,7 +165,13 @@ public class CouchbaseCache implements Cache {
     return (result != null ? new SimpleValueWrapper(result) : null);
   }
 
+  /**
+   * {@inheritDoc}
+   * <p>
+   * The <code>clazz</code> is expected to be implementing {@link Serializable}.
+   */
   @SuppressWarnings("unchecked")
+  @Override
   public final <T> T get(final Object key, final Class<T> clazz) {
     String documentId = getDocumentId(key.toString());
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
@@ -177,11 +180,14 @@ public class CouchbaseCache implements Cache {
   }
 
   /**
-   * Store a object in Couchbase.
+   * {@inheritDoc}
+   * <p>
+   * Values are expected to be {@link Serializable}.
    *
    * @param key the Key of the storable object.
-   * @param value the Object to store.
+   * @param value the Serializable object to store.
    */
+  @Override
   public final void put(final Object key, final Object value) {
     if (value != null) {
       if (!(value instanceof Serializable)) {
@@ -195,11 +201,7 @@ public class CouchbaseCache implements Cache {
     }
   }
 
-  /**
-   * Remove an object from Couchbase.
-   *
-   * @param key the Key of the object to delete.
-   */
+  @Override
   public final void evict(final Object key) {
     String documentId = getDocumentId(key.toString());
     client.remove(documentId);
@@ -210,7 +212,10 @@ public class CouchbaseCache implements Cache {
    *
    * Note that this action is very destructive, so only use it with care.
    * Also note that "flush" may not be enabled on the bucket.
+   *
+   * @see #setAlwaysFlush(Boolean)
    */
+  @Override
   public final void clear() {
     if(getAlwaysFlush() || name == null || name.trim().length() == 0)
       try {
@@ -226,6 +231,7 @@ public class CouchbaseCache implements Cache {
    * (non-Javadoc)
    * @see org.springframework.cache.Cache#putIfAbsent(java.lang.Object, java.lang.Object)
    */
+  @Override
   public ValueWrapper putIfAbsent(Object key, Object value) {
     if (get(key) == null) {
       put(key, value);
@@ -268,6 +274,9 @@ public class CouchbaseCache implements Cache {
     try {
       doc = bucketManager.getDesignDocument(CACHE_DESIGN_DOCUMENT);
     } catch (Exception e) {
+      if (logger.isDebugEnabled()) {
+        logger.debug("Unable to retrieve design document " + CACHE_DESIGN_DOCUMENT, e);
+      }
     }
 
     if(doc != null) {
