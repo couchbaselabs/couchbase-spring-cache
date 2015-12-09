@@ -29,6 +29,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.Serializable;
+import java.util.NoSuchElementException;
 
 import static org.junit.Assert.*;
 
@@ -219,6 +220,20 @@ public class CouchbaseCacheTests {
       //success
     }
     assertNull(cache.get(key));
+  }
+
+  @Test
+  public void testClearingEmptyCacheUsingViewSucceeds() {
+    CouchbaseCache cache = new CouchbaseCache("emptyCache", client);
+    String unrelatedId = "unrelated";
+    cache.getNativeCache().upsert(JsonDocument.create(unrelatedId, JsonObject.empty()));
+
+    try {
+      cache.clear();
+    } catch (NoSuchElementException e) {
+      fail("Cache clearing failed on empty cache: " + e.toString());
+    }
+    assertTrue(cache.getNativeCache().exists(unrelatedId));
   }
 
   static class User implements Serializable {

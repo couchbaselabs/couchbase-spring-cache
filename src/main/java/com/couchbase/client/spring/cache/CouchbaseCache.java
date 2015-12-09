@@ -301,7 +301,7 @@ public class CouchbaseCache implements Cache {
           }
         })
         .toBlocking()
-        .last();
+        .lastOrDefault(null); //ignore empty cache
   }
 
   private void ensureViewExists() {
