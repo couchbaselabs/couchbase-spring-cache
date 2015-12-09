@@ -23,6 +23,7 @@ import java.util.List;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.bucket.BucketManager;
 import com.couchbase.client.java.document.SerializableDocument;
+import com.couchbase.client.java.error.DocumentAlreadyExistsException;
 import com.couchbase.client.java.view.DefaultView;
 import com.couchbase.client.java.view.DesignDocument;
 import com.couchbase.client.java.view.Stale;
@@ -226,18 +227,32 @@ public class CouchbaseCache implements Cache {
       evictAllDocuments();
   }
 
-  /*
-   * (non-Javadoc)
-   * @see org.springframework.cache.Cache#putIfAbsent(java.lang.Object, java.lang.Object)
+  /**
+   * {@inheritDoc}
+   * <p>
+   * Note that the atomicity in this Couchbase implementation is guaranteed for the insertion part. The detection of the
+   * pre-existing key and thus skipping of the insertion is atomic. However, in such a case a get will have to be
+   * performed to retrieve the pre-existing value. This get is not atomic and could see the key as deleted, in which
+   * case it will return a {@link ValueWrapper} with a null content.
    */
   @Override
   public ValueWrapper putIfAbsent(Object key, Object value) {
-    if (get(key) == null) {
-      put(key, value);
-      return null;
+    if (value != null && !(value instanceof Serializable)) {
+      throw new IllegalArgumentException(String.format("Value %s of type %s is not Serializable", value.toString(), value.getClass().getName()));
     }
+    String documentId = getDocumentId(key.toString());
+    SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
 
-    return new SimpleValueWrapper(value);
+    try {
+      client.insert(doc);
+      return null;
+    } catch (DocumentAlreadyExistsException e) {
+      SerializableDocument existingDoc = client.get(documentId, SerializableDocument.class);
+      if (existingDoc == null) {
+        return new SimpleValueWrapper(null);
+      }
+      return new SimpleValueWrapper(existingDoc.content());
+    }
   }
 
   /**
