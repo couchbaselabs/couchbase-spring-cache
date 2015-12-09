@@ -160,9 +160,8 @@ public class CouchbaseCache implements Cache {
       return null;
     }
 
-    Object result = doc.content();
-
-    return (result != null ? new SimpleValueWrapper(result) : null);
+    //if doc.content is null, the Wrapper is expected to contain null
+    return new SimpleValueWrapper(doc.content());
   }
 
   /**
