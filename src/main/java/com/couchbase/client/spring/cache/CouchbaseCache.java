@@ -216,7 +216,7 @@ public class CouchbaseCache implements Cache {
    */
   @Override
   public final void clear() {
-    if(getAlwaysFlush() || name == null || name.trim().length() == 0)
+    if(getAlwaysFlush())
       try {
         client.bucketManager().flush();
       } catch (Exception e) {
@@ -258,7 +258,11 @@ public class CouchbaseCache implements Cache {
   private void evictAllDocuments() {
     ViewQuery query = ViewQuery.from(CACHE_DESIGN_DOCUMENT, CACHE_VIEW);
     query.stale(Stale.FALSE);
-    query.key(name);
+    if (name == null || name.trim().length() == 0) {
+      query.key("");
+    } else {
+      query.key(name);
+    }
 
     ViewResult response = client.query(query);
     for(ViewRow row : response) {
