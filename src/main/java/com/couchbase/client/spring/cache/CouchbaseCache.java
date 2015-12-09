@@ -50,6 +50,7 @@ import org.springframework.cache.support.SimpleValueWrapper;
  */
 public class CouchbaseCache implements Cache {
 
+  private static final ValueWrapper EMPTY_WRAPPER = new SimpleValueWrapper(null);
   private final Logger logger = LoggerFactory.getLogger(CouchbaseCache.class);
   /**
    * The actual SDK {@link Bucket} instance.
@@ -161,7 +162,9 @@ public class CouchbaseCache implements Cache {
       return null;
     }
 
-    //if doc.content is null, the Wrapper is expected to contain null
+    if (doc.content() == null) {
+      return EMPTY_WRAPPER;
+    }
     return new SimpleValueWrapper(doc.content());
   }
 
@@ -249,7 +252,7 @@ public class CouchbaseCache implements Cache {
     } catch (DocumentAlreadyExistsException e) {
       SerializableDocument existingDoc = client.get(documentId, SerializableDocument.class);
       if (existingDoc == null) {
-        return new SimpleValueWrapper(null);
+        return EMPTY_WRAPPER;
       }
       return new SimpleValueWrapper(existingDoc.content());
     }
