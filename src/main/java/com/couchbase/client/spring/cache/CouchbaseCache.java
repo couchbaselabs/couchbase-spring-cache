@@ -22,17 +22,22 @@ import java.util.List;
 
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.bucket.BucketManager;
+import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.SerializableDocument;
+import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.DocumentAlreadyExistsException;
+import com.couchbase.client.java.error.QueryExecutionException;
+import com.couchbase.client.java.view.AsyncViewResult;
+import com.couchbase.client.java.view.AsyncViewRow;
 import com.couchbase.client.java.view.DefaultView;
 import com.couchbase.client.java.view.DesignDocument;
 import com.couchbase.client.java.view.Stale;
 import com.couchbase.client.java.view.View;
 import com.couchbase.client.java.view.ViewQuery;
-import com.couchbase.client.java.view.ViewResult;
-import com.couchbase.client.java.view.ViewRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import rx.Observable;
+import rx.functions.Func1;
 
 import org.springframework.cache.Cache;
 import org.springframework.cache.support.SimpleValueWrapper;
@@ -212,9 +217,13 @@ public class CouchbaseCache implements Cache {
 
   /**
    * Clear the complete cache.
-   *
-   * Note that this action is very destructive, so only use it with care.
-   * Also note that "flush" may not be enabled on the bucket.
+   * <p>
+   * If {@link #setAlwaysFlush(Boolean)} is set to true, the underlying {@link Bucket} is flushed, which is a very
+   * destructive action, so only use it with care (for instance other caches or clients may store unrelated data in the
+   * same Bucket as this cache, and flushing will also destroy said data). Note that flush may not be enabled on the
+   * underlying bucket.
+   * <p>
+   * Otherwise, a Couchbase {@link View} is used to choose which documents to remove from the underlying storage.
    *
    * @see #setAlwaysFlush(Boolean)
    */
@@ -282,10 +291,17 @@ public class CouchbaseCache implements Cache {
       query.key(name);
     }
 
-    ViewResult response = client.query(query);
-    for(ViewRow row : response) {
-      client.remove(row.id());
-    }
+    client.async()
+        .query(query)
+        .flatMap(ROW_IDS_OR_ERROR)
+        .flatMap(new Func1<String, Observable<? extends Document>>() {
+          @Override
+          public Observable<? extends Document> call(String id) {
+            return client.async().remove(id, SerializableDocument.class);
+          }
+        })
+        .toBlocking()
+        .last();
   }
 
   private void ensureViewExists() {
@@ -333,11 +349,56 @@ public class CouchbaseCache implements Cache {
 
   /**
    * Sets whether the cache should always use the flush() method to clear all documents.
+   * <p>
+   * This is a very destructive action, so only use it with care (for instance other caches or clients may store
+   * unrelated data in the same Bucket as this cache, and flushing will also destroy said data). Note that flush may not
+   * be enabled on the underlying bucket.
    *
    * @param alwaysFlush Whether the cache should always use the flush() method to clear all documents.
    */
   public void setAlwaysFlush(Boolean alwaysFlush) {
     this.alwaysFlush = alwaysFlush;
   }
+
+
+  /** Converts View Rows to the associated document's ID */
+  private static final Func1<AsyncViewRow, String> ROW_TO_ID =
+      new Func1<AsyncViewRow, String>() {
+        @Override
+        public String call(AsyncViewRow asyncViewRow) {
+          return asyncViewRow.id();
+        }
+      };
+
+  /**
+   * Converts a JsonObject view error into an Observable&lt;String&gt; that emits
+   * a{@link com.couchbase.client.java.error.QueryExecutionException} wrapping the error.
+   */
+  private static final Func1<JsonObject, Observable<String>> JSON_TO_ONERROR =
+      new Func1<JsonObject, Observable<String>>() {
+        @Override
+        public Observable<String> call(JsonObject jsonError) {
+          return Observable.error(new QueryExecutionException(
+              "Error during view query execution: ", jsonError));
+        }
+      };
+
+  /**
+   * Out of an {@link AsyncViewResult}, extract the stream of document IDs or emit an error if unsuccessful.
+   */
+  private static Func1<AsyncViewResult, Observable<String>> ROW_IDS_OR_ERROR =
+      new Func1<AsyncViewResult, Observable<String>>() {
+          @Override
+          public Observable<String> call(AsyncViewResult asyncViewResult) {
+            if (asyncViewResult.success()) {
+              return asyncViewResult
+                  .rows()
+                  .map(ROW_TO_ID);
+            } else {
+              return asyncViewResult.error()
+                  .flatMap(JSON_TO_ONERROR);
+            }
+          }
+        };
 
 }
