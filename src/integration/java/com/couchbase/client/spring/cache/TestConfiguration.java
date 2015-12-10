@@ -48,12 +48,12 @@ public class TestConfiguration {
   }
 
   @Bean(destroyMethod = "disconnect")
-  Cluster cluster() {
+  public Cluster cluster() {
     return CouchbaseCluster.create(seedNode());
   }
 
   @Bean(destroyMethod = "close")
-  Bucket bucket() {
+  public Bucket bucket() {
     return cluster().openBucket(bucketName(), bucketPassword());
   }
 
