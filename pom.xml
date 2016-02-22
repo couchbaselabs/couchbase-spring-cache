@@ -27,7 +27,6 @@
         <couchbase.version>2.2.2</couchbase.version>
         <slf4j.version>1.7.10</slf4j.version>
 
-        <spring.test.version>4.1.5.RELEASE</spring.test.version>
         <junit.version>4.11</junit.version>
         <hamcrest.version>1.3</hamcrest.version>
     </properties>
@@ -35,8 +34,7 @@
     <dependencies>
         <dependency>
             <groupId>org.springframework</groupId>
-            <artifactId>spring-context-support</artifactId>
-            <version>${spring.version}</version>
+            <artifactId>spring-context</artifactId>
         </dependency>
 
         <dependency>
@@ -66,10 +64,21 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>${spring.test.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-framework-bom</artifactId>
+                <version>${spring.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>
