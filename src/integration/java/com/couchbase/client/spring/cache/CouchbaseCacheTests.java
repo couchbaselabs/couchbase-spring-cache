@@ -17,21 +17,30 @@
 package com.couchbase.client.spring.cache;
 
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.Serializable;
+import java.util.NoSuchElementException;
+
 import com.couchbase.client.java.Bucket;
+import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.DocumentDoesNotExistException;
+import org.junit.Assume;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache.ValueWrapper;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestContext;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-
-import java.io.Serializable;
-import java.util.NoSuchElementException;
-
-import static org.junit.Assert.*;
 
 /**
  * Tests the CouchbaseCache class and verifies its functionality.
@@ -198,8 +207,13 @@ public class CouchbaseCacheTests {
 
   /**
    * Putting into cache on the same key not null value and then clearing the cache,
-   * results in null object
+   * results in null object.
+   *
+   * As this is quite a dangerous method of clearing a cache (with side effects, namely it empties the whole
+   * bucket, including unrelated data), this test has been disabled by default. If you're sure it is safe to
+   * execute, comment the @Ignore annotation below.
    */
+  @Ignore("Flush clearing test disabled, see test comment.")
   @Test
   public void testClearingUsingFlushImpactsUnrelatedDocuments() {
     CouchbaseCache cache = new CouchbaseCache(cacheName, client);
