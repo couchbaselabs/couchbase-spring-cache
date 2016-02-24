@@ -26,6 +26,12 @@ import static org.junit.Assert.fail;
 
 import java.io.Serializable;
 import java.util.NoSuchElementException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
@@ -248,6 +254,38 @@ public class CouchbaseCacheTests {
       fail("Cache clearing failed on empty cache: " + e.toString());
     }
     assertTrue(cache.getNativeCache().exists(unrelatedId));
+  }
+
+  @Test
+  public void testCallingSyncGetInParallel() throws ExecutionException, InterruptedException {
+    final String key = "getWithValueLoader";
+    final CouchbaseCache cache = new CouchbaseCache(cacheName, client);
+    final String documentId = cache.getDocumentId(key);
+    try { cache.getNativeCache().remove(documentId); } catch (DocumentDoesNotExistException e) {}
+    final AtomicInteger count = new AtomicInteger(0);
+    final Callable<String> valueLoader = new Callable<String>() {
+      @Override
+      public String call() throws Exception {
+        return "value" + count.getAndIncrement();
+      }
+    };
+    Runnable task = new Runnable() {
+      @Override
+      public void run() {
+        cache.get(key, valueLoader);
+      }
+    };
+
+    final ExecutorService executorService = Executors.newFixedThreadPool(2);
+    Future<?> future1 = executorService.submit(task);
+    Future<?> future2 = executorService.submit(task);
+    future1.get();
+    future2.get();
+
+    assertEquals(1, count.get());
+    ValueWrapper w = cache.get(key);
+    assertNotNull(w);
+    assertEquals("value0", w.get());
   }
 
   static class User implements Serializable {

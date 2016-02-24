@@ -19,6 +19,7 @@ package com.couchbase.client.spring.cache;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.bucket.BucketManager;
@@ -187,6 +188,53 @@ public class CouchbaseCache implements Cache {
     return (doc == null) ? null : (T) doc.content();
   }
 
+  //TODO in 4.3, override and throw a ValueRetrievalException
+  /**
+   * Return the value to which this cache maps the specified key, obtaining
+   * that value from {@code valueLoader} if necessary. This method provides
+   * a simple substitute for the conventional "if cached, return; otherwise
+   * create, cache and return" pattern.
+   * <p>If possible, implementations should ensure that the loading operation
+   * is synchronized so that the specified {@code valueLoader} is only called
+   * once in case of concurrent access on the same key.
+   * <p>If the {@code valueLoader} throws an exception, it is wrapped in
+   * a {@link RuntimeException}
+   *
+   * @param key the key whose associated value is to be returned
+   * @param valueLoader
+   * @return the value to which this cache maps the specified key
+   * @throws RuntimeException if the {@code valueLoader} throws an exception
+   * @since 4.3
+   */
+//  @Override
+  public <T> T get(final Object key, final Callable<T> valueLoader) {
+    final String documentId = getDocumentId(key.toString());
+    SerializableDocument doc = client.get(documentId, SerializableDocument.class);
+    if (doc == null && valueLoader != null) {
+      synchronized (client) {
+        doc = client.get(documentId, SerializableDocument.class);
+        if (doc == null) {
+          try {
+            T value = valueLoader.call();
+            put(key, value);
+            return value;
+          //TODO in 4.3, both RuntimeException below should be replaced by ValueRetrievalException
+          } catch (RuntimeException e) {
+            throw e;
+          } catch (Exception e) {
+//            throw new ValueRetrievalException(key, valueLoader, e);
+            throw new RuntimeException(String.format("Failed to load key %s using valueLoader %s", key, valueLoader.getClass().getName()));
+          }
+        }
+      }
+    }
+
+    if (doc != null) {
+      return (T) doc.content();
+    }
+    return null;
+  }
+
   /**
    * {@inheritDoc}
    * <p>
@@ -275,7 +323,7 @@ public class CouchbaseCache implements Cache {
    * @param key the cache key to transform to a Couchbase key.
    * @return the Couchbase key to use for storage.
    */
-  private String getDocumentId(String key) {
+  protected String getDocumentId(String key) {
     if(name == null || name.trim().length() == 0)
       return CACHE_PREFIX + DELIMITER + DELIMITER + key;
     else
