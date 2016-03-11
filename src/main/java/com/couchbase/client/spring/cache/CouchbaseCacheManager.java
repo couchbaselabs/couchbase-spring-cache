@@ -16,15 +16,13 @@
 
 package com.couchbase.client.spring.cache;
 
-import org.springframework.cache.Cache;
-import org.springframework.cache.support.AbstractCacheManager;
-
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
+import java.util.*;
 
 import com.couchbase.client.java.Bucket;
+
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.support.AbstractCacheManager;
 
 /**
  * The {@link CouchbaseCacheManager} orchestrates {@link CouchbaseCache} instances.
@@ -35,73 +33,86 @@ import com.couchbase.client.java.Bucket;
  * @author Michael Nitschinger
  * @author Simon Baslé
  * @author Konrad Król
+ * @author Stéphane Nicoll
  */
 public class CouchbaseCacheManager extends AbstractCacheManager {
 
-  /**
-   * Holds the reference to all stored {@link Bucket} cache connections.
-   */
-  private final Map<String, Bucket> clients;
-  
-  /**
-   * Holds the TTL configuration for each cache.
-   */
-  private final Map<String, Integer> ttlConfiguration;
+  private CacheBuilder defaultCacheBuilder;
+  private final Map<String, CacheBuilder> initialCaches;
 
   /**
-   * Construct a new CouchbaseCacheManager.
+   * Construct a {@link CacheManager} with a "template" {@link CacheBuilder} (at least specifying a backing
+   * {@link Bucket}).
    *
-   * @param clients one ore more {@link Bucket} to reference.
-   */
-  public CouchbaseCacheManager(final Map<String, Bucket> clients) {
-    this.clients = clients;
-    this.ttlConfiguration = new HashMap<String, Integer>();
-  }
-  
-  /**
-   * Construct a new CouchbaseCacheManager.
+   * If a list of predetermined cache names is provided, the manager is "static" and these caches will all be
+   * prepared using the provided template builder.
    *
-   * @param clients one ore more {@link Bucket} to reference.
-   * @param ttlConfiguration one or more TTL values (in seconds)
-   */
-  public CouchbaseCacheManager(final Map<String, Bucket> clients, final Map<String, Integer> ttlConfiguration) {
-    this.clients = clients;
-    this.ttlConfiguration = ttlConfiguration;
-  }
-
-  /**
-   * Returns a Map of all registered {@link Bucket} with name.
+   * If no list is provided, the manager will be "dynamic" and additional caches can be added later on just by name,
+   * as they'll use the template builder for their configuration.
    *
-   * @return the underlying {@link Bucket} instances.
+   * Note that builders are used lazily and should not be mutated after having been passed to this constructor.
+   *
+   * @param cacheBuilder the template (backing client, optional ttl) to use either for static construction of specified
+   * caches or later dynamic construction.
+   * @param cacheNames the names of caches recognized by this manager initially. If empty, caches can be added
+   * dynamically later. Null names will be ignored.
+   * @see CouchbaseCacheManager#setDefaultCacheBuilder(CacheBuilder) to force activation of dynamic creation later on.
    */
-  public final Map<String, Bucket> getClients() {
-    return clients;
+  public CouchbaseCacheManager(CacheBuilder cacheBuilder, String... cacheNames) {
+    if (cacheBuilder == null) {
+      throw new NullPointerException("CacheBuilder template is mandatory");
+    }
+    Set<String> names = cacheNames.length == 0? Collections.<String> emptySet()
+            : new LinkedHashSet<String>(Arrays.asList(cacheNames));
+    this.initialCaches = new HashMap<String, CacheBuilder>(names.size());
+    for (String name : names) {
+      if (name != null) {
+        this.initialCaches.put(name, cacheBuilder);
+      }
+    }
+    if (this.initialCaches.isEmpty()) {
+      this.defaultCacheBuilder = cacheBuilder;
+    }
   }
 
   /**
-   * Populates all caches.
+   * Construct a {@link CacheManager} knowing about a predetermined set of caches at construction. The caches are
+   * all explicitly described (using a {@link CacheBuilder} and the manager cannot create caches dynamically until
+   * {@link #setDefaultCacheBuilder(CacheBuilder)} is called.
    *
-   * @return a collection of loaded caches.
+   * Note that builders are used lazily and should not be mutated after having been passed to this constructor.
+   *
+   * @param initialCaches the caches to make available on startup
    */
+  public CouchbaseCacheManager(Map<String, CacheBuilder> initialCaches) {
+    if (initialCaches == null || initialCaches.isEmpty()) {
+      throw new IllegalArgumentException("At least one cache builder must be specified.");
+    }
+    this.initialCaches = new HashMap<String, CacheBuilder>(initialCaches);
+  }
+
+  /**
+   * Set the default cache builder to use to create caches on the fly. Set it to {@code null}
+   * to prevent cache to be created at runtime.
+   *
+   * @param defaultCacheBuilder the cache builder to use
+   */
+  public void setDefaultCacheBuilder(CacheBuilder defaultCacheBuilder) {
+    this.defaultCacheBuilder = defaultCacheBuilder;
+  }
+
+  @Override
+  protected Cache getMissingCache(String name) {
+    return (defaultCacheBuilder != null ? defaultCacheBuilder.build(name) : null);
+  }
+
   @Override
   protected final Collection<? extends Cache> loadCaches() {
-    Collection<Cache> caches = new LinkedHashSet<Cache>();
-
-    for (Map.Entry<String, Bucket> cache : clients.entrySet()) {
-      caches.add(new CouchbaseCache(cache.getKey(), cache.getValue(), getTtl(cache.getKey())));
+    List<Cache> caches = new LinkedList<Cache>();
+    for (Map.Entry<String, CacheBuilder> entry : initialCaches.entrySet()) {
+      caches.add(entry.getValue().build(entry.getKey()));
     }
-
     return caches;
-  }
-  
-  /**
-   * Returns TTL value for single cache
-   * @param name cache name
-   * @return either the cache TTL value or 0 as a default value
-   */
-  private int getTtl(String name) {
-      Integer expirationTime = ttlConfiguration.get(name);
-      return (expirationTime != null ? expirationTime : 0);
   }
 
 }
