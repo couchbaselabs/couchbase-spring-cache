@@ -18,11 +18,15 @@ package com.couchbase.client.spring.cache;
 
 import org.springframework.cache.Cache;
 import org.springframework.cache.support.AbstractCacheManager;
+import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 import com.couchbase.client.java.Bucket;
 
@@ -35,47 +39,125 @@ import com.couchbase.client.java.Bucket;
  * @author Michael Nitschinger
  * @author Simon Baslé
  * @author Konrad Król
+ * @author Stéphane Nicoll
  */
 public class CouchbaseCacheManager extends AbstractCacheManager {
 
-  /**
-   * Holds the reference to all stored {@link Bucket} cache connections.
-   */
-  private final Map<String, Bucket> clients;
-  
-  /**
-   * Holds the TTL configuration for each cache.
-   */
-  private final Map<String, Integer> ttlConfiguration;
+  private final Bucket defaultBucket;
+
+  private boolean dynamic = true;
+
+  private int defaultTtl = 0;
+
+  private Map<String, Bucket> clients = new LinkedHashMap<String, Bucket>();
+  private Map<String, Integer> ttlMap = new LinkedHashMap<String, Integer>();
 
   /**
-   * Construct a new CouchbaseCacheManager.
+   * Construct a CacheManager backed by a default {@link Bucket} and knowing about
+   * a predetermined set of caches at construction.
    *
-   * @param clients one ore more {@link Bucket} to reference.
+   * @param defaultBucket the backing bucket to use for all caches.
+   * @param cacheNames the names of caches recognized by this manager. A null or empty value
+   * would make this manager dynamic instead.
    */
-  public CouchbaseCacheManager(final Map<String, Bucket> clients) {
-    this.clients = clients;
-    this.ttlConfiguration = new HashMap<String, Integer>();
-  }
-  
-  /**
-   * Construct a new CouchbaseCacheManager.
-   *
-   * @param clients one ore more {@link Bucket} to reference.
-   * @param ttlConfiguration one or more TTL values (in seconds)
-   */
-  public CouchbaseCacheManager(final Map<String, Bucket> clients, final Map<String, Integer> ttlConfiguration) {
-    this.clients = clients;
-    this.ttlConfiguration = ttlConfiguration;
+  public CouchbaseCacheManager(Bucket defaultBucket, Collection<String> cacheNames) {
+    this.defaultBucket = defaultBucket;
+    Set<String> names = CollectionUtils.isEmpty(cacheNames) ? Collections.<String> emptySet()
+            : new HashSet<String>(cacheNames);
+    this.dynamic = names.isEmpty();
+    for (String name : names) {
+      clients.put(name, defaultBucket);
+      ttlMap.put(name, defaultTtl);
+    }
   }
 
   /**
-   * Returns a Map of all registered {@link Bucket} with name.
+   * Construct a CacheManager backed by a default {@link Bucket} and knowing about
+   * a predetermined set of caches at construction, all of which share the same expiration TTL.
    *
-   * @return the underlying {@link Bucket} instances.
+   * @param defaultBucket the backing bucket to use for all caches.
+   * @param ttl the expiration TTL for all the declared caches.
+   * @param cacheNames the names of caches recognized by this manager. A null or empty value
+   * would make this manager dynamic instead.
    */
-  public final Map<String, Bucket> getClients() {
-    return clients;
+  public CouchbaseCacheManager(Bucket defaultBucket, int ttl, Collection<String> cacheNames) {
+    this.defaultBucket = defaultBucket;
+    this.defaultTtl = ttl;
+    Set<String> names = CollectionUtils.isEmpty(cacheNames) ? Collections.<String> emptySet()
+            : new HashSet<String>(cacheNames);
+    this.dynamic = names.isEmpty();
+    for (String name : names) {
+      clients.put(name, defaultBucket);
+      ttlMap.put(name, defaultTtl);
+    }
+  }
+
+  /**
+   * Construct a CacheManager backed by a default {@link Bucket} and knowing about
+   * a predetermined set of caches at construction, each with different ttl.
+   *
+   * @param defaultBucket the backing bucket to use for all caches.
+   * @param cacheNames a map of the names of caches recognized by this manager and their individual ttl setting.
+   * A null or empty value would make this manager dynamic instead.
+   */
+  public CouchbaseCacheManager(Bucket defaultBucket, Map<String, Integer> cacheNames) {
+    this.defaultBucket = defaultBucket;
+    Map<String, Integer> namesAndTtl = CollectionUtils.isEmpty(cacheNames) ? Collections.<String, Integer> emptyMap()
+            : cacheNames;
+    this.dynamic = namesAndTtl.isEmpty();
+    for (Map.Entry<String, Integer> nameAndTtl : namesAndTtl.entrySet()) {
+      String name = nameAndTtl.getKey();
+      Integer ttl = nameAndTtl.getValue();
+      clients.put(name, defaultBucket);
+      ttlMap.put(name, ttl);
+    }
+  }
+
+  /**
+   * Construct a CacheManager backed by a default {@link Bucket} and capable of dynamically adding
+   * new caches as they are requested.
+   *
+   * @param defaultBucket the backing bucket to use for all dynamic caches.
+   */
+  public CouchbaseCacheManager(Bucket defaultBucket) {
+    this(defaultBucket, Collections.<String>emptyList());
+  }
+
+  /**
+   * Set the default Time To Live value for all caches created from that point
+   * forward.
+   */
+  public void setDefaultTtl(int defaultTtl) {
+    this.defaultTtl = defaultTtl;
+  }
+
+  /**
+   * Dynamically and forcibly add a new cache backed by the default bucket.
+   *
+   * @param cacheName the name of the cache to add.
+   * @param ttl the ttl/expiry for elements in the new cache.
+   */
+  public void addCache(String cacheName, int ttl) {
+    addCache(cacheName, ttl, defaultBucket);
+  }
+
+  /**
+   * Dynamically and foribly add a new cache backed by a specific bucket.
+   *
+   * @param cacheName the name of the cache to add.
+   * @param ttl the ttl/expiry for elements in the new cache.
+   * @param bucket the {@link Bucket} backing the new cache.
+   */
+  public void addCache(String cacheName, int ttl, Bucket bucket) {
+    addCache(createCache(cacheName, ttl, bucket));
+  }
+
+  @Override
+  protected Cache getMissingCache(String name) {
+    if (this.dynamic) {
+      return createCache(name, defaultTtl, defaultBucket);
+    }
+    return null;
   }
 
   /**
@@ -88,20 +170,20 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
     Collection<Cache> caches = new LinkedHashSet<Cache>();
 
     for (Map.Entry<String, Bucket> cache : clients.entrySet()) {
-      caches.add(new CouchbaseCache(cache.getKey(), cache.getValue(), getTtl(cache.getKey())));
+      String cacheName = cache.getKey();
+      Bucket cacheClient = cache.getValue();
+      Integer ttl = ttlMap.get(cacheName);
+      if (ttl == null)
+        ttl = defaultTtl;
+
+      caches.add(createCache(cacheName, ttl,  cacheClient));
     }
 
     return caches;
   }
-  
-  /**
-   * Returns TTL value for single cache
-   * @param name cache name
-   * @return either the cache TTL value or 0 as a default value
-   */
-  private int getTtl(String name) {
-      Integer expirationTime = ttlConfiguration.get(name);
-      return (expirationTime != null ? expirationTime : 0);
+
+  private CouchbaseCache createCache(String name, Integer ttl, Bucket bucket) {
+    return new CouchbaseCache(name, bucket, ttl);
   }
 
 }

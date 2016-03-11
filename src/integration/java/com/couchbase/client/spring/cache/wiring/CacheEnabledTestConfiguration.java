@@ -41,6 +41,6 @@ public class CacheEnabledTestConfiguration extends TestConfiguration {
 
   @Bean
   public CacheManager cacheManager() {
-    return new CouchbaseCacheManager(Collections.singletonMap(DATA_CACHE_NAME, bucket()));
+    return new CouchbaseCacheManager(bucket(), Collections.singleton(DATA_CACHE_NAME));
   }
 }
