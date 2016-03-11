@@ -104,7 +104,7 @@ public class CouchbaseCacheManagerTests {
     names.add("cache2");
 
     CouchbaseCacheManager manager = new CouchbaseCacheManager(client, 100, names);
-    manager.setDefaultTtl(300); //to make sure defaultTtl being later overriden isn't taken into account
+    manager.setDefaultTtl(300); //to make sure defaultTtl being later overridden isn't taken into account
     manager.afterPropertiesSet();
     
     assertEquals(names, manager.getCacheNames());
@@ -160,6 +160,131 @@ public class CouchbaseCacheManagerTests {
 
     assertEquals(((CouchbaseCache) cache1).getNativeCache(), client);
     assertEquals(((CouchbaseCache) cache2).getNativeCache(), client);
+  }
+
+  @Test
+  public void testStaticCacheInitWithSingleConfig() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+        new CouchbaseCacheManager.Config("test", client, 100));
+    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
+    manager.afterPropertiesSet();
+    Cache cache = manager.getCache("test");
+
+    assertEquals(Collections.singleton("test"), manager.getCacheNames());
+    assertNotNull(cache);
+    assertEquals(cache.getClass(), CouchbaseCache.class);
+    assertEquals(cache.getName(), "test");
+    assertEquals(((CouchbaseCache) cache).getTtl(), 100);
+    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
+  }
+
+  @Test
+  public void testStaticCacheInitWithSingleConfigAndNoTtl() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+        new CouchbaseCacheManager.Config("test", client, null));
+    //null ttl in config should result in using the default ttl's value at afterPropertiesSet
+    manager.setDefaultTtl(400);
+    manager.afterPropertiesSet();
+    Cache cache = manager.getCache("test");
+
+    assertEquals(Collections.singleton("test"), manager.getCacheNames());
+    assertNotNull(cache);
+    assertEquals(cache.getClass(), CouchbaseCache.class);
+    assertEquals(cache.getName(), "test");
+    assertEquals(((CouchbaseCache) cache).getTtl(), 400);
+    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
+  }
+
+  @Test
+  public void testStaticCacheInitWithTwoConfigs() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+        new CouchbaseCacheManager.Config("cache1", client, 100),
+        new CouchbaseCacheManager.Config("cache2", client, 200)
+    );
+    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
+    manager.afterPropertiesSet();
+    Cache cache1 = manager.getCache("cache1");
+    Cache cache2 = manager.getCache("cache2");
+
+    assertEquals(new HashSet<String>(Arrays.asList("cache1", "cache2")), manager.getCacheNames());
+    assertNotNull(cache1);
+    assertNotNull(cache2);
+    assertEquals(cache1.getClass(), CouchbaseCache.class);
+    assertEquals(cache2.getClass(), CouchbaseCache.class);
+    assertEquals(cache1.getName(), "cache1");
+    assertEquals(cache2.getName(), "cache2");
+    assertEquals(((CouchbaseCache) cache1).getTtl(), 100);
+    assertEquals(((CouchbaseCache) cache2).getTtl(), 200);
+    assertEquals(((CouchbaseCache) cache1).getNativeCache(), client);
+    assertEquals(((CouchbaseCache) cache2).getNativeCache(), client);
+  }
+
+  @Test
+  public void testStaticCacheInitWithThreeConfigs() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+        new CouchbaseCacheManager.Config("cache1", client, 100),
+        new CouchbaseCacheManager.Config("cache2", client, 200),
+        new CouchbaseCacheManager.Config("cache3", client, 300)
+    );
+    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
+    manager.afterPropertiesSet();
+    Cache cache1 = manager.getCache("cache1");
+    Cache cache2 = manager.getCache("cache2");
+    Cache cache3 = manager.getCache("cache3");
+
+    assertEquals(new HashSet<String>(Arrays.asList("cache1", "cache2", "cache3")), manager.getCacheNames());
+    assertNotNull(cache1);
+    assertNotNull(cache2);
+    assertNotNull(cache3);
+    assertEquals(cache1.getClass(), CouchbaseCache.class);
+    assertEquals(cache2.getClass(), CouchbaseCache.class);
+    assertEquals(cache3.getClass(), CouchbaseCache.class);
+    assertEquals(cache1.getName(), "cache1");
+    assertEquals(cache2.getName(), "cache2");
+    assertEquals(cache3.getName(), "cache3");
+    assertEquals(((CouchbaseCache) cache1).getTtl(), 100);
+    assertEquals(((CouchbaseCache) cache2).getTtl(), 200);
+    assertEquals(((CouchbaseCache) cache3).getTtl(), 300);
+    assertEquals(((CouchbaseCache) cache1).getNativeCache(), client);
+    assertEquals(((CouchbaseCache) cache2).getNativeCache(), client);
+    assertEquals(((CouchbaseCache) cache3).getNativeCache(), client);
+  }
+
+  @Test
+  public void testStaticCacheInitWithConfigIgnoresDuplicates() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+        new CouchbaseCacheManager.Config("test", client, 100),
+        new CouchbaseCacheManager.Config("test", client, 200),
+        new CouchbaseCacheManager.Config("test", client, 300)
+    );
+    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
+    manager.afterPropertiesSet();
+    Cache cache = manager.getCache("test");
+
+    assertEquals(Collections.singleton("test"), manager.getCacheNames());
+    assertNotNull(cache);
+    assertEquals(cache.getClass(), CouchbaseCache.class);
+    assertEquals(cache.getName(), "test");
+    assertEquals(((CouchbaseCache) cache).getTtl(), 300); //latest config wins
+    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
+  }
+
+  @Test
+  public void testStaticCacheInitWithConfigIgnoresNullVararg() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+        new CouchbaseCacheManager.Config("test", client, null),
+        null
+    );
+    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
+    manager.afterPropertiesSet();
+    Cache cache = manager.getCache("test");
+
+    assertEquals(Collections.singleton("test"), manager.getCacheNames());
+    assertNotNull(cache);
+    assertEquals(cache.getClass(), CouchbaseCache.class);
+    assertEquals(cache.getName(), "test");
+    assertEquals(((CouchbaseCache) cache).getTtl(), 400);
+    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
   }
 
   /**
