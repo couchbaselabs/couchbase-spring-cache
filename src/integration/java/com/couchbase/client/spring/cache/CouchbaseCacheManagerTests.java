@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.couchbase.client.java.Bucket;
@@ -58,9 +59,9 @@ public class CouchbaseCacheManagerTests {
    * Test statically declaring and loading a cache with default expiry.
    */
   @Test
-  public void testStaticCacheInit() {
+  public void testCacheInit() {
     Set<String> cacheNames = Collections.singleton("test");
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(client, cacheNames);
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client), cacheNames);
     manager.afterPropertiesSet();
     
     assertEquals(cacheNames, manager.getCacheNames());
@@ -79,9 +80,9 @@ public class CouchbaseCacheManagerTests {
    * Test statically declaring and loading a cache won't allow for dynamic creation later
    */
   @Test
-  public void testStaticCacheOnlyCreatesKnownCaches() {
+  public void testStaticCacheInitOnlyCreatesKnownCaches() {
     Set<String> cacheNames = Collections.singleton("test");
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(client, cacheNames);
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client), cacheNames);
     manager.afterPropertiesSet();
 
     assertEquals(cacheNames, manager.getCacheNames());
@@ -98,13 +99,12 @@ public class CouchbaseCacheManagerTests {
    * Test statically declaring and loading 2 caches with a common non-zero TTL value.
    */
   @Test
-  public void testStaticCacheInitWithCommonTtl() {
+  public void testCacheInitWithCommonTtl() {
     Set<String> names = new HashSet<String>();
     names.add("cache1");
     names.add("cache2");
 
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(client, 100, names);
-    manager.setDefaultTtl(300); //to make sure defaultTtl being later overridden isn't taken into account
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client).withExpirationInMillis(100), names);
     manager.afterPropertiesSet();
     
     assertEquals(names, manager.getCacheNames());
@@ -132,16 +132,14 @@ public class CouchbaseCacheManagerTests {
    * Test statically declaring and loading 2 caches with custom TTL values.
    */
   @Test
-  public void testStaticCacheInitWithCustomTtl() {
-    HashMap<String, Integer> withTtl = new HashMap<String, Integer>();
-    withTtl.put("cache1", 100);
-    withTtl.put("cache2", 200);
-
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(client, withTtl);
-    manager.setDefaultTtl(300); //to make sure defaultTtl has been overridden
+  public void testCacheInitWithCustomTtl() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client).withExpirationInMillis(300),
+        new CacheBuilder("cache1", client).withExpirationInMillis(100),
+        new CacheBuilder("cache2", client).withExpirationInMillis(200)
+    );
     manager.afterPropertiesSet();
 
-    assertEquals(withTtl.keySet(), manager.getCacheNames());
+    assertEquals(new HashSet<String>(Arrays.asList("cache1", "cache2")), manager.getCacheNames());
 
     Cache cache1 = manager.getCache("cache1");
     Cache cache2 = manager.getCache("cache2");
@@ -163,10 +161,10 @@ public class CouchbaseCacheManagerTests {
   }
 
   @Test
-  public void testStaticCacheInitWithSingleConfig() {
+  public void testCacheInitWithSingleConfig() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CouchbaseCacheManager.Config("test", client, 100));
-    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
+        new CacheTemplate(client).withExpirationInMillis(400), 
+        new CacheBuilder("test", client).withExpirationInMillis(100));
     manager.afterPropertiesSet();
     Cache cache = manager.getCache("test");
 
@@ -179,11 +177,11 @@ public class CouchbaseCacheManagerTests {
   }
 
   @Test
-  public void testStaticCacheInitWithSingleConfigAndNoTtl() {
+  public void testCacheInitWithSingleConfigAndNoTtl() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CouchbaseCacheManager.Config("test", client, null));
+        new CacheTemplate(client).withExpirationInMillis(400),
+        new CacheBuilder("test", client));
     //null ttl in config should result in using the default ttl's value at afterPropertiesSet
-    manager.setDefaultTtl(400);
     manager.afterPropertiesSet();
     Cache cache = manager.getCache("test");
 
@@ -196,12 +194,12 @@ public class CouchbaseCacheManagerTests {
   }
 
   @Test
-  public void testStaticCacheInitWithTwoConfigs() {
+  public void testCacheInitWithTwoConfigs() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CouchbaseCacheManager.Config("cache1", client, 100),
-        new CouchbaseCacheManager.Config("cache2", client, 200)
+        new CacheTemplate(client).withExpirationInMillis(400),
+        new CacheBuilder("cache1", client).withExpirationInMillis(100),
+        new CacheBuilder("cache2", client).withExpirationInMillis(200)
     );
-    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
     manager.afterPropertiesSet();
     Cache cache1 = manager.getCache("cache1");
     Cache cache2 = manager.getCache("cache2");
@@ -220,13 +218,13 @@ public class CouchbaseCacheManagerTests {
   }
 
   @Test
-  public void testStaticCacheInitWithThreeConfigs() {
+  public void testCacheInitWithThreeConfigs() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CouchbaseCacheManager.Config("cache1", client, 100),
-        new CouchbaseCacheManager.Config("cache2", client, 200),
-        new CouchbaseCacheManager.Config("cache3", client, 300)
+        new CacheTemplate(client).withExpirationInMillis(400),
+        new CacheBuilder("cache1", client).withExpirationInMillis(100),
+        new CacheBuilder("cache2", client).withExpirationInMillis(200),
+        new CacheBuilder("cache3", client).withExpirationInMillis(300)
     );
-    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
     manager.afterPropertiesSet();
     Cache cache1 = manager.getCache("cache1");
     Cache cache2 = manager.getCache("cache2");
@@ -251,13 +249,13 @@ public class CouchbaseCacheManagerTests {
   }
 
   @Test
-  public void testStaticCacheInitWithConfigIgnoresDuplicates() {
+  public void testCacheInitWithConfigIgnoresDuplicates() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CouchbaseCacheManager.Config("test", client, 100),
-        new CouchbaseCacheManager.Config("test", client, 200),
-        new CouchbaseCacheManager.Config("test", client, 300)
+        new CacheTemplate(client).withExpirationInMillis(400),
+        new CacheBuilder("test", client).withExpirationInMillis(100),
+        new CacheBuilder("test", client).withExpirationInMillis(200),
+        new CacheBuilder("test", client).withExpirationInMillis(300)
     );
-    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
     manager.afterPropertiesSet();
     Cache cache = manager.getCache("test");
 
@@ -270,12 +268,11 @@ public class CouchbaseCacheManagerTests {
   }
 
   @Test
-  public void testStaticCacheInitWithConfigIgnoresNullVararg() {
+  public void testCacheInitWithConfigIgnoresNullVararg() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CouchbaseCacheManager.Config("test", client, null),
-        null
+        new CacheTemplate(client).withExpirationInMillis(400),
+        (CacheBuilder) null
     );
-    manager.setDefaultTtl(400); //to make sure defaultTtl being later overridden isn't taken into account
     manager.afterPropertiesSet();
     Cache cache = manager.getCache("test");
 
@@ -291,8 +288,8 @@ public class CouchbaseCacheManagerTests {
    * Test dynamic cache creation, with changing default ttl.
    */
   @Test
-  public void testDynamicCacheInit() {
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(client);
+  public void testDynamicCacheInitWithoutTtl() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client));
     manager.afterPropertiesSet();
 
     assertEquals(Collections.emptySet(), manager.getCacheNames());
@@ -305,8 +302,14 @@ public class CouchbaseCacheManagerTests {
     assertEquals("test", cache.getName());
     assertEquals(0, ((CouchbaseCache) cache).getTtl()); // default TTL value
     assertEquals(client, ((CouchbaseCache) cache).getNativeCache());
+  }
 
-    manager.setDefaultTtl(20);
+  @Test
+  public void testDynamicCacheInitWithTtl() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+        new CacheTemplate(client).withExpirationInMillis(20)
+    );
+    manager.afterPropertiesSet();
     Cache expiringCache = manager.getCache("testExpiring");
 
     assertNotNull(expiringCache);
