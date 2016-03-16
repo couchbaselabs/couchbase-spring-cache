@@ -3,54 +3,61 @@ package com.couchbase.client.spring.cache;
 import com.couchbase.client.java.Bucket;
 
 /**
- * A builder for a {@link CouchbaseCache}, enforcing at a minimum a name and a backing {@link Bucket}.
+ * A builder for {@link CouchbaseCache} instance.
  *
  * @author Simon Baslé
  */
-public class CacheBuilder extends CacheTemplate {
+public class CacheBuilder {
 
-  private final String cacheName;
+  private static final int DEFAULT_TTL = 0;
 
-  /**
-   * Start a new {@link CacheBuilder}, specifying the name of the cache to be created
-   * and its backing {@link Bucket}.
-   *
-   * @param name the name for the cache to be built.
-   * @param bucket the backing bucket for the cache.
-   */
-  public CacheBuilder(String name, Bucket bucket) {
-    super(bucket);
-    this.cacheName = name;
+  private Bucket bucket;
+  private int cacheExpiry;
+
+  protected CacheBuilder() {
+    this.cacheExpiry = DEFAULT_TTL;
   }
 
   /**
-   * Start a new {@link CacheBuilder} from an existing {@link CacheTemplate}.
-   *
-   * @param name the name for the cache to be built.
-   * @param template the template from which to get the backing bucket and expiration.
+   * Create a new builder instance with the given {@link Bucket}.
+   * @param bucket the bucket to use
+   * @return a new builder
    */
-  public CacheBuilder(String name, CacheTemplate template) {
-    super(template.getDefaultClient());
-    this.cacheName = name;
-    this.cacheExpiry = template.getDefaultExpiry();
+  public static CacheBuilder newInstance(Bucket bucket) {
+    return new CacheBuilder().withBucket(bucket);
   }
 
-  @Override
-  public CacheBuilder withExpirationInMillis(int expiration) {
-    super.withExpirationInMillis(expiration);
+  /**
+   * Give a bucket to the cache to be built.
+   * @param bucket the bucket
+   * @return this builder for chaining.
+   */
+  public CacheBuilder withBucket(Bucket bucket) {
+    if (bucket == null) {
+      throw new NullPointerException("A non-null Bucket is required for all cache builders");
+    }
+    this.bucket = bucket;
     return this;
   }
 
   /**
-   * Build the {@link CouchbaseCache} from the configuration embedded by this builder.
+   * Give a default expiration (or TTL) to the cache to be built.
    *
-   * @return a new CouchbaseCache.
+   * @param expiration the expiration delay in milliseconds.
+   * @return this builder for chaining.
    */
-  public CouchbaseCache build() {
-    if (cacheName == null || cacheClient == null) {
-      throw new NullPointerException("Cache name and backing client are both mandatory for cache construction");
-    }
-    return new CouchbaseCache(cacheName, cacheClient, cacheExpiry);
+  public CacheBuilder withExpirationInMillis(int expiration) {
+    this.cacheExpiry = expiration;
+    return this;
+  }
+
+  /**
+   * Build a new {@link CouchbaseCache} with the specified name.
+   * @param cacheName the name of the cache
+   * @return a {@link CouchbaseCache} instance
+   */
+  public CouchbaseCache build(String cacheName) {
+    return new CouchbaseCache(cacheName, this.bucket, this.cacheExpiry);
   }
 
 }

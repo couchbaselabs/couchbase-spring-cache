@@ -15,10 +15,8 @@
  */
 package com.couchbase.client.spring.cache.wiring;
 
-import java.util.Collections;
-
 import com.couchbase.client.spring.cache.CouchbaseCacheManager;
-import com.couchbase.client.spring.cache.CacheTemplate;
+import com.couchbase.client.spring.cache.CacheBuilder;
 import com.couchbase.client.spring.cache.TestConfiguration;
 
 import org.springframework.cache.CacheManager;
@@ -42,6 +40,6 @@ public class CacheEnabledTestConfiguration extends TestConfiguration {
 
   @Bean
   public CacheManager cacheManager() {
-    return new CouchbaseCacheManager(new CacheTemplate(bucket()), Collections.singleton(DATA_CACHE_NAME));
+    return new CouchbaseCacheManager(CacheBuilder.newInstance(bucket()), DATA_CACHE_NAME);
   }
 }

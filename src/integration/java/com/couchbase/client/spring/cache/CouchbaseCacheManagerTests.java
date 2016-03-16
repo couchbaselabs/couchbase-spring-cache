@@ -16,26 +16,22 @@
 
 package com.couchbase.client.spring.cache;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import com.couchbase.client.java.Bucket;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.util.CollectionUtils;
+
+import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.core.IsNot.not;
+import static org.junit.Assert.*;
 
 /**
  * Verifies the correct functionality of the CouchbaseCacheManager,
@@ -55,25 +51,24 @@ public class CouchbaseCacheManagerTests {
   @Autowired
   private Bucket client;
 
+  private CacheBuilder defaultCacheBuilder;
+
+  @Before
+  public void setup() {
+    this.defaultCacheBuilder = CacheBuilder.newInstance(client);
+  }
+
   /**
    * Test statically declaring and loading a cache with default expiry.
    */
   @Test
   public void testCacheInit() {
-    Set<String> cacheNames = Collections.singleton("test");
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client), cacheNames);
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(defaultCacheBuilder, "test");
     manager.afterPropertiesSet();
-    
-    assertEquals(cacheNames, manager.getCacheNames());
-    
-    Cache cache = manager.getCache("test");
-    
-    assertNotNull(cache);
-    
-    assertEquals(cache.getClass(), CouchbaseCache.class);
-    assertEquals(cache.getName(), "test");
-    assertEquals(((CouchbaseCache) cache).getTtl(), 0); // default TTL value
-    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
+
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "test", client, 0); // default TTL value
   }
 
   /**
@@ -81,18 +76,19 @@ public class CouchbaseCacheManagerTests {
    */
   @Test
   public void testStaticCacheInitOnlyCreatesKnownCaches() {
-    Set<String> cacheNames = Collections.singleton("test");
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client), cacheNames);
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(defaultCacheBuilder, "test");
     manager.afterPropertiesSet();
 
-    assertEquals(cacheNames, manager.getCacheNames());
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
 
     Cache cache = manager.getCache("test");
     assertNotNull(cache);
 
     Cache invalidCache = manager.getCache("invalid");
     assertNull(invalidCache);
-    assertEquals(cacheNames, manager.getCacheNames());
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
   }
 
   /**
@@ -100,32 +96,15 @@ public class CouchbaseCacheManagerTests {
    */
   @Test
   public void testCacheInitWithCommonTtl() {
-    Set<String> names = new HashSet<String>();
-    names.add("cache1");
-    names.add("cache2");
-
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client).withExpirationInMillis(100), names);
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+            defaultCacheBuilder.withExpirationInMillis(100), "cache1", "cache2");
     manager.afterPropertiesSet();
-    
-    assertEquals(names, manager.getCacheNames());
-    
-    Cache cache1 = manager.getCache("cache1");
-    Cache cache2 = manager.getCache("cache2");
-    
-    assertNotNull(cache1);
-    assertNotNull(cache2);
-    
-    assertEquals(cache1.getClass(), CouchbaseCache.class);
-    assertEquals(cache2.getClass(), CouchbaseCache.class);
-    
-    assertEquals(cache1.getName(), "cache1");
-    assertEquals(cache2.getName(), "cache2");
-    
-    assertEquals(((CouchbaseCache) cache1).getTtl(), 100);
-    assertEquals(((CouchbaseCache) cache2).getTtl(), 100);
-    
-    assertEquals(((CouchbaseCache) cache1).getNativeCache(), client);
-    assertEquals(((CouchbaseCache) cache2).getNativeCache(), client);
+
+    assertThat(manager.getCacheNames(), hasItems("cache1", "cache2"));
+    assertThat(manager.getCacheNames().size(), equalTo(2));
+
+    assertCache(manager, "cache1", client, 100);
+    assertCache(manager, "cache2", client, 100);
   }
 
   /**
@@ -133,155 +112,90 @@ public class CouchbaseCacheManagerTests {
    */
   @Test
   public void testCacheInitWithCustomTtl() {
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client).withExpirationInMillis(300),
-        new CacheBuilder("cache1", client).withExpirationInMillis(100),
-        new CacheBuilder("cache2", client).withExpirationInMillis(200)
-    );
+    Map<String, CacheBuilder> cacheConfigs = new LinkedHashMap<String, CacheBuilder>();
+    cacheConfigs.put("cache1", CacheBuilder.newInstance(client).withExpirationInMillis(100));
+    cacheConfigs.put("cache2", CacheBuilder.newInstance(client).withExpirationInMillis(200));
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(cacheConfigs);
     manager.afterPropertiesSet();
 
-    assertEquals(new HashSet<String>(Arrays.asList("cache1", "cache2")), manager.getCacheNames());
+    assertThat(manager.getCacheNames(), hasItems("cache1", "cache2"));
+    assertThat(manager.getCacheNames().size(), equalTo(2));
 
-    Cache cache1 = manager.getCache("cache1");
-    Cache cache2 = manager.getCache("cache2");
-
-    assertNotNull(cache1);
-    assertNotNull(cache2);
-
-    assertEquals(cache1.getClass(), CouchbaseCache.class);
-    assertEquals(cache2.getClass(), CouchbaseCache.class);
-
-    assertEquals(cache1.getName(), "cache1");
-    assertEquals(cache2.getName(), "cache2");
-
-    assertEquals(((CouchbaseCache) cache1).getTtl(), 100);
-    assertEquals(((CouchbaseCache) cache2).getTtl(), 200);
-
-    assertEquals(((CouchbaseCache) cache1).getNativeCache(), client);
-    assertEquals(((CouchbaseCache) cache2).getNativeCache(), client);
+    assertCache(manager, "cache1", client, 100);
+    assertCache(manager, "cache2", client, 200);
   }
 
   @Test
   public void testCacheInitWithSingleConfig() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CacheTemplate(client).withExpirationInMillis(400), 
-        new CacheBuilder("test", client).withExpirationInMillis(100));
-    manager.afterPropertiesSet();
-    Cache cache = manager.getCache("test");
+            Collections.singletonMap("test",
+                    CacheBuilder.newInstance(client).withExpirationInMillis(100)));
 
-    assertEquals(Collections.singleton("test"), manager.getCacheNames());
-    assertNotNull(cache);
-    assertEquals(cache.getClass(), CouchbaseCache.class);
-    assertEquals(cache.getName(), "test");
-    assertEquals(((CouchbaseCache) cache).getTtl(), 100);
-    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
+    manager.afterPropertiesSet();
+
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+
+    assertCache(manager, "test", client, 100);
   }
 
   @Test
   public void testCacheInitWithSingleConfigAndNoTtl() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CacheTemplate(client).withExpirationInMillis(400),
-        new CacheBuilder("test", client));
+            Collections.singletonMap("test",
+                    CacheBuilder.newInstance(client)));
     //null ttl in config should result in using the default ttl's value at afterPropertiesSet
     manager.afterPropertiesSet();
-    Cache cache = manager.getCache("test");
 
-    assertEquals(Collections.singleton("test"), manager.getCacheNames());
-    assertNotNull(cache);
-    assertEquals(cache.getClass(), CouchbaseCache.class);
-    assertEquals(cache.getName(), "test");
-    assertEquals(((CouchbaseCache) cache).getTtl(), 400);
-    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
-  }
-
-  @Test
-  public void testCacheInitWithTwoConfigs() {
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CacheTemplate(client).withExpirationInMillis(400),
-        new CacheBuilder("cache1", client).withExpirationInMillis(100),
-        new CacheBuilder("cache2", client).withExpirationInMillis(200)
-    );
-    manager.afterPropertiesSet();
-    Cache cache1 = manager.getCache("cache1");
-    Cache cache2 = manager.getCache("cache2");
-
-    assertEquals(new HashSet<String>(Arrays.asList("cache1", "cache2")), manager.getCacheNames());
-    assertNotNull(cache1);
-    assertNotNull(cache2);
-    assertEquals(cache1.getClass(), CouchbaseCache.class);
-    assertEquals(cache2.getClass(), CouchbaseCache.class);
-    assertEquals(cache1.getName(), "cache1");
-    assertEquals(cache2.getName(), "cache2");
-    assertEquals(((CouchbaseCache) cache1).getTtl(), 100);
-    assertEquals(((CouchbaseCache) cache2).getTtl(), 200);
-    assertEquals(((CouchbaseCache) cache1).getNativeCache(), client);
-    assertEquals(((CouchbaseCache) cache2).getNativeCache(), client);
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "test", client, 0);
   }
 
   @Test
   public void testCacheInitWithThreeConfigs() {
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CacheTemplate(client).withExpirationInMillis(400),
-        new CacheBuilder("cache1", client).withExpirationInMillis(100),
-        new CacheBuilder("cache2", client).withExpirationInMillis(200),
-        new CacheBuilder("cache3", client).withExpirationInMillis(300)
-    );
-    manager.afterPropertiesSet();
-    Cache cache1 = manager.getCache("cache1");
-    Cache cache2 = manager.getCache("cache2");
-    Cache cache3 = manager.getCache("cache3");
+    Map<String, CacheBuilder> cacheConfigs = new LinkedHashMap<String, CacheBuilder>();
+    cacheConfigs.put("cache1", CacheBuilder.newInstance(client).withExpirationInMillis(100));
+    cacheConfigs.put("cache2", CacheBuilder.newInstance(client).withExpirationInMillis(200));
+    cacheConfigs.put("cache3", CacheBuilder.newInstance(client).withExpirationInMillis(300));
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(cacheConfigs);
 
-    assertEquals(new HashSet<String>(Arrays.asList("cache1", "cache2", "cache3")), manager.getCacheNames());
-    assertNotNull(cache1);
-    assertNotNull(cache2);
-    assertNotNull(cache3);
-    assertEquals(cache1.getClass(), CouchbaseCache.class);
-    assertEquals(cache2.getClass(), CouchbaseCache.class);
-    assertEquals(cache3.getClass(), CouchbaseCache.class);
-    assertEquals(cache1.getName(), "cache1");
-    assertEquals(cache2.getName(), "cache2");
-    assertEquals(cache3.getName(), "cache3");
-    assertEquals(((CouchbaseCache) cache1).getTtl(), 100);
-    assertEquals(((CouchbaseCache) cache2).getTtl(), 200);
-    assertEquals(((CouchbaseCache) cache3).getTtl(), 300);
-    assertEquals(((CouchbaseCache) cache1).getNativeCache(), client);
-    assertEquals(((CouchbaseCache) cache2).getNativeCache(), client);
-    assertEquals(((CouchbaseCache) cache3).getNativeCache(), client);
+    manager.afterPropertiesSet();
+
+    assertThat(manager.getCacheNames(), hasItems("cache1", "cache2", "cache3"));
+    assertThat(manager.getCacheNames().size(), equalTo(3));
+    assertCache(manager, "cache1", client, 100);
+    assertCache(manager, "cache2", client, 200);
+    assertCache(manager, "cache3", client, 300);
   }
 
   @Test
   public void testCacheInitWithConfigIgnoresDuplicates() {
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CacheTemplate(client).withExpirationInMillis(400),
-        new CacheBuilder("test", client).withExpirationInMillis(100),
-        new CacheBuilder("test", client).withExpirationInMillis(200),
-        new CacheBuilder("test", client).withExpirationInMillis(300)
-    );
-    manager.afterPropertiesSet();
-    Cache cache = manager.getCache("test");
+    Map<String, CacheBuilder> cacheConfigs = new LinkedHashMap<String, CacheBuilder>();
+    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpirationInMillis(100));
+    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpirationInMillis(200));
+    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpirationInMillis(300));
 
-    assertEquals(Collections.singleton("test"), manager.getCacheNames());
-    assertNotNull(cache);
-    assertEquals(cache.getClass(), CouchbaseCache.class);
-    assertEquals(cache.getName(), "test");
-    assertEquals(((CouchbaseCache) cache).getTtl(), 300); //latest config wins
-    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(cacheConfigs);
+    manager.afterPropertiesSet();
+
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "test", client, 300);
   }
 
   @Test
   public void testCacheInitWithConfigIgnoresNullVararg() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CacheTemplate(client).withExpirationInMillis(400),
-        (CacheBuilder) null
-    );
+            defaultCacheBuilder.withExpirationInMillis(400));
     manager.afterPropertiesSet();
-    Cache cache = manager.getCache("test");
 
-    assertEquals(Collections.singleton("test"), manager.getCacheNames());
-    assertNotNull(cache);
-    assertEquals(cache.getClass(), CouchbaseCache.class);
-    assertEquals(cache.getName(), "test");
-    assertEquals(((CouchbaseCache) cache).getTtl(), 400);
-    assertEquals(((CouchbaseCache) cache).getNativeCache(), client);
+    assertThat(manager.getCacheNames().size(), equalTo(0));
+    manager.getCache("test");
+
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "test", client, 400);
   }
 
   /**
@@ -289,35 +203,50 @@ public class CouchbaseCacheManagerTests {
    */
   @Test
   public void testDynamicCacheInitWithoutTtl() {
-    CouchbaseCacheManager manager = new CouchbaseCacheManager(new CacheTemplate(client));
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(defaultCacheBuilder);
     manager.afterPropertiesSet();
 
-    assertEquals(Collections.emptySet(), manager.getCacheNames());
+    assertThat(manager.getCacheNames().size(), equalTo(0));
+    manager.getCache("test");
 
-    Cache cache = manager.getCache("test");
-
-    assertNotNull(cache);
-    assertEquals(Collections.singleton("test"), manager.getCacheNames());
-    assertEquals(CouchbaseCache.class, cache.getClass());
-    assertEquals("test", cache.getName());
-    assertEquals(0, ((CouchbaseCache) cache).getTtl()); // default TTL value
-    assertEquals(client, ((CouchbaseCache) cache).getNativeCache());
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "test", client, 0); // default TTL value
   }
 
   @Test
   public void testDynamicCacheInitWithTtl() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        new CacheTemplate(client).withExpirationInMillis(20)
-    );
+        defaultCacheBuilder.withExpirationInMillis(20));
     manager.afterPropertiesSet();
     Cache expiringCache = manager.getCache("testExpiring");
 
     assertNotNull(expiringCache);
-    assertEquals(new HashSet<String>(Arrays.asList("test", "testExpiring")), manager.getCacheNames());
-    assertEquals(CouchbaseCache.class, expiringCache.getClass());
-    assertEquals("testExpiring", expiringCache.getName());
-    assertEquals(20, ((CouchbaseCache) expiringCache).getTtl()); // updated default TTL value
-    assertEquals(client , ((CouchbaseCache) expiringCache).getNativeCache());
+    assertThat(manager.getCacheNames(), hasItems("testExpiring"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "testExpiring", client, 20);
+  }
+
+  @Test
+  public void disableDynamicMode() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+            defaultCacheBuilder.withExpirationInMillis(20));
+
+    manager.setDefaultCacheBuilder(null);
+    manager.afterPropertiesSet();
+
+    assertThat(manager.getCache("dynamicCache"), nullValue());
+    assertThat(manager.getCacheNames().size(), equalTo(0));
+  }
+
+  private static void assertCache(CacheManager cacheManager, String name, Bucket client, int ttl) {
+    Cache actual = cacheManager.getCache(name);
+    assertThat(actual, not(nullValue()));
+    assertThat(actual.getName(), equalTo(name));
+    assertThat(actual, instanceOf(CouchbaseCache.class));
+    CouchbaseCache couchbaseCache = (CouchbaseCache) actual;
+    assertThat(couchbaseCache.getNativeCache(), equalTo(client));
+    assertThat(couchbaseCache.getTtl(), equalTo(ttl));
   }
 
 }

@@ -16,20 +16,13 @@
 
 package com.couchbase.client.spring.cache;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import com.couchbase.client.java.Bucket;
 
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.support.AbstractCacheManager;
-import org.springframework.util.CollectionUtils;
 
 /**
  * The {@link CouchbaseCacheManager} orchestrates {@link CouchbaseCache} instances.
@@ -44,98 +37,68 @@ import org.springframework.util.CollectionUtils;
  */
 public class CouchbaseCacheManager extends AbstractCacheManager {
 
-  private final CacheTemplate template;
-  private List<CacheBuilder> staticCaches = new LinkedList<CacheBuilder>();
+  private CacheBuilder defaultCacheBuilder;
+  private final Collection<CouchbaseCache> initialCaches;
 
   /**
    * Construct a {@link CacheManager} knowing about a predetermined set of caches at construction. The caches are
-   * all prepared using the provided {@link CacheTemplate} (at least specifying a backing {@link Bucket}).
+   * all prepared using the provided {@link CacheBuilder} (at least specifying a backing {@link Bucket}).
    *
    * Later on, additional caches can be added dynamically just by name, as they'll use the template for
    * configuration as well.
    *
-   * @param dynamicTemplate the template (backing client, optional ttl) to use for all caches that needs to be
+   * @param cacheBuilder the template (backing client, optional ttl) to use for all caches that needs to be
    *  dynamically created.
    * @param cacheNames the names of caches recognized by this manager initially. Caches can be added dynamically later,
    * and null names will be ignored.
    */
-  public CouchbaseCacheManager(CacheTemplate dynamicTemplate, Collection<String> cacheNames) {
-    this.template = dynamicTemplate;
-    Set<String> names = CollectionUtils.isEmpty(cacheNames) ? Collections.<String> emptySet()
-            : new HashSet<String>(cacheNames);
+  public CouchbaseCacheManager(CacheBuilder cacheBuilder, String... cacheNames) {
+    Set<String> names = cacheNames.length == 0? Collections.<String> emptySet()
+            : new LinkedHashSet<String>(Arrays.asList(cacheNames));
+    this.initialCaches = new ArrayList<CouchbaseCache>();
     for (String name : names) {
       if (name != null) {
-        staticCaches.add(new CacheBuilder(name, dynamicTemplate));
+        this.initialCaches.add(cacheBuilder.build(name));
       }
+    }
+    if (this.initialCaches.isEmpty()) {
+      this.defaultCacheBuilder = cacheBuilder;
     }
   }
 
   /**
    * Construct a {@link CacheManager} knowing about a predetermined set of caches at construction. The caches are
-   * all explicitly described (using a {@link CacheBuilder}. In order to later be able to simply add a dynamic cache
-   * just by name, a {@link CacheTemplate} should be provided. This will enable on-demand creation of new caches when
-   * an unknown name is requested.
+   * all explicitly described (using a {@link CacheBuilder}.
    *
-   * @param dynamicTemplate the template (backing client, optional ttl) to use for dynamically creating a cache later on.
-   * @param preloadedCaches the builders of caches recognized by this manager initially (nulls are ignored).
+   * @param initialCaches the caches to make available on startup
    */
-  public CouchbaseCacheManager(CacheTemplate dynamicTemplate, CacheBuilder... preloadedCaches) {
-    this.template = dynamicTemplate;
-    if (preloadedCaches != null) {
-      for (CacheBuilder pcache : preloadedCaches) {
-        if (pcache != null) {
-          staticCaches.add(pcache);
-        }
-      }
+  public CouchbaseCacheManager(Map<String, CacheBuilder> initialCaches) {
+    if (initialCaches == null || initialCaches.isEmpty()) {
+      throw new IllegalArgumentException("At least one cache builder must be specified.");
     }
+    this.initialCaches = new ArrayList<CouchbaseCache>();
+    for (Map.Entry<String, CacheBuilder> entry : initialCaches.entrySet()) {
+      this.initialCaches.add(entry.getValue().build(entry.getKey()));
+    }
+  }
+
+  /**
+   * Set the default cache builder to use to create caches on the fly. Set it to {@code null}
+   * to prevent cache to be created at runtime.
+   * @param defaultCacheBuilder the cache builder to use
+   */
+  public void setDefaultCacheBuilder(CacheBuilder defaultCacheBuilder) {
+    this.defaultCacheBuilder = defaultCacheBuilder;
   }
 
   @Override
   protected Cache getMissingCache(String name) {
-    if (template == null) {
-      return null; //dynamically adding by name isn't possible, no "template"
-    } else {
-      CacheBuilder builder = new CacheBuilder(name, template);
-      return builder.build();
-    }
+    return (defaultCacheBuilder != null ? defaultCacheBuilder.build(name) : null);
   }
 
-  /**
-   * Populates all caches.
-   *
-   * @return a collection of loaded caches.
-   */
   @Override
   protected final Collection<? extends Cache> loadCaches() {
-    Collection<Cache> caches = new LinkedHashSet<Cache>();
-
-    for (CacheBuilder cfg : staticCaches) {
-      caches.add(cfg.build());
-    }
-
-    return caches;
+    return this.initialCaches;
   }
 
-  /**
-   * Programmatically add a cache to the manager, using an explicit {@link CacheBuilder}. This works in any
-   * configuration.
-   *
-   * @param cacheBuilder the builder explicitly describing the cache to add.
-   */
-  public void addCache(CacheBuilder cacheBuilder) {
-    addCache(cacheBuilder.build());
-  }
-
-  /**
-   * Programmatically add a cache to the manager using the {@link CacheTemplate} that was passed in at construction
-   * time. This is the same as requesting an unknown cache by name (as the later will also use the template to
-   * dynamically create a new cache).
-   * @param name
-   */
-  public void addCache(String name) {
-    if (template == null) {
-      throw new IllegalStateException("Dynamic adding of a cache with just a name requires a cache template at construction");
-    }
-    addCache(new CacheBuilder(name, template));
-  }
 }
