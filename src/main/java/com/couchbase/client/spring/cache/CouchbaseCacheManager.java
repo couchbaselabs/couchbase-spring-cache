@@ -38,6 +38,8 @@ import org.springframework.cache.support.AbstractCacheManager;
 public class CouchbaseCacheManager extends AbstractCacheManager {
 
   private CacheBuilder defaultCacheBuilder;
+
+  private boolean initialized;
   private final Map<String, CacheBuilder> initialCaches;
 
   /**
@@ -101,6 +103,39 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
     this.defaultCacheBuilder = defaultCacheBuilder;
   }
 
+  /**
+   * Register an additional cache with the specified name using the default builder.
+   * <p>
+   * Caches can only be configured at initialization time. Once the cache manager
+   * has been initialized, no cache can be further prepared.
+   * @param name the name of the cache to add
+   * @throws IllegalStateException if no builder is available or if the cache manager
+   * has already been initialized
+   */
+  public void prepareCache(String name) {
+    if (defaultCacheBuilder == null) {
+      throw new IllegalStateException("No default cache builder is specified.");
+    }
+    prepareCache(name, defaultCacheBuilder);
+  }
+
+  /**
+   * Register an additional cache with the specified name using the specified
+   * {@link CacheBuilder}.
+   * <p>
+   * Caches can only be configured at initialization time. Once the cache manager
+   * has been initialized, no cache can be further prepared.
+   * @param name the name of the cache to add
+   * @throws IllegalStateException the cache manager has already been initialized
+   */
+  public void prepareCache(String name, CacheBuilder builder) {
+    if (initialized) {
+      throw new IllegalStateException("This cache manager has already been initialized. No " +
+              "further cache can be prepared.");
+    }
+    this.initialCaches.put(name, builder);
+  }
+
   @Override
   protected Cache getMissingCache(String name) {
     return (defaultCacheBuilder != null ? defaultCacheBuilder.build(name) : null);
@@ -108,6 +143,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
 
   @Override
   protected final Collection<? extends Cache> loadCaches() {
+    initialized = true;
     List<Cache> caches = new LinkedList<Cache>();
     for (Map.Entry<String, CacheBuilder> entry : initialCaches.entrySet()) {
       caches.add(entry.getValue().build(entry.getKey()));

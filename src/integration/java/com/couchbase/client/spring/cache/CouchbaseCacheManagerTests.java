@@ -20,7 +20,9 @@ import java.util.*;
 
 import com.couchbase.client.java.Bucket;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,9 @@ import static org.junit.Assert.*;
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfiguration.class)
 public class CouchbaseCacheManagerTests {
+
+  @Rule
+  public final ExpectedException thrown = ExpectedException.none();
 
   /**
    * Contains a reference to the actual underlying {@link Bucket}.
@@ -237,6 +242,49 @@ public class CouchbaseCacheManagerTests {
 
     assertThat(manager.getCache("dynamicCache"), nullValue());
     assertThat(manager.getCacheNames().size(), equalTo(0));
+  }
+
+  @Test
+  public void prepareCache() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+            defaultCacheBuilder.withExpirationInMillis(20));
+    manager.prepareCache("test");
+    manager.afterPropertiesSet();
+
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "test", client, 20);
+  }
+
+  @Test
+  public void prepareCacheNoBuilder() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+            defaultCacheBuilder.withExpirationInMillis(20), "test");
+
+    thrown.expect(IllegalStateException.class);
+    manager.prepareCache("another");
+  }
+
+  @Test
+  public void prepareCacheCustomBuilder() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+            defaultCacheBuilder.withExpirationInMillis(20));
+    manager.prepareCache("test", CacheBuilder.newInstance(client).withExpirationInMillis(400));
+    manager.afterPropertiesSet();
+
+    assertThat(manager.getCacheNames(), hasItems("test"));
+    assertThat(manager.getCacheNames().size(), equalTo(1));
+    assertCache(manager, "test", client, 400);
+  }
+
+  @Test
+  public void prepareCacheCacheManagerInitialized() {
+    CouchbaseCacheManager manager = new CouchbaseCacheManager(
+            defaultCacheBuilder.withExpirationInMillis(20));
+    manager.afterPropertiesSet();
+
+    thrown.expect(IllegalStateException.class);
+    manager.prepareCache("test", CacheBuilder.newInstance(client).withExpirationInMillis(400));
   }
 
   private static void assertCache(CacheManager cacheManager, String name, Bucket client, int ttl) {
