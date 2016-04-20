@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cache="http://www.springframework.org/schema/cache"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd">
+
+    <bean id="couchbaseCluster" class="com.couchbase.client.java.CouchbaseCluster" factory-method="create">
+        <constructor-arg>
+            <list>
+                <!-- list the IP/hostnames to bootstrap from (recommended: 2) -->
+                <value>127.0.0.1</value>
+            </list>
+        </constructor-arg>
+    </bean>
+
+    <bean id="couchbaseBucket" class="com.couchbase.client.java.Bucket"
+          factory-bean="couchbaseCluster" factory-method="openBucket">
+        <!-- specify the bucket and password to use -->
+        <constructor-arg index="0" type="java.lang.String" value="default"/>
+        <constructor-arg index="1" type="java.lang.String" value=""/>
+    </bean>
+
+    <bean id="couchbaseCacheBuilder" class="com.couchbase.client.spring.cache.CacheBuilder"
+          factory-method="newInstance">
+        <constructor-arg type="com.couchbase.client.java.Bucket" ref="couchbaseBucket"/>
+    </bean>
+
+    <bean id="cacheManager" class="com.couchbase.client.spring.cache.CouchbaseCacheManager">
+        <constructor-arg type="com.couchbase.client.spring.cache.CacheBuilder" ref="couchbaseCacheBuilder"/>
+        <constructor-arg>
+            <list>
+                <!-- pre-declare caches you intend to use -->
+                <value>staticCache1</value>
+                <value>staticCache2</value>
+                <value>staticCache3</value>
+                <value>dataCache</value>
+            </list>
+        </constructor-arg>
+    </bean>
+
+    <bean id="cachedService" class="com.couchbase.client.spring.cache.wiring.CachedService"/>
+
+    <cache:annotation-driven/>
+
+</beans>

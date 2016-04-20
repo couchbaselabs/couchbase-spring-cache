@@ -18,6 +18,11 @@ package com.couchbase.client.spring.cache.wiring;
 import static org.junit.Assert.*;
 
 import com.couchbase.client.java.Bucket;
+import com.couchbase.client.java.Cluster;
+import com.couchbase.client.spring.cache.CacheBuilder;
+import com.couchbase.client.spring.cache.CouchbaseCacheManager;
+import com.couchbase.client.spring.cache.wiring.CachedService;
+import com.couchbase.client.spring.cache.wiring.javaConfig.CacheEnabledTestConfiguration;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,28 +36,34 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 /**
- * Test case for the wiring and execution of a {@link Cacheable}-annotated {@link CachedService}.
+ * Common test case for the wiring and execution of a {@link Cacheable}-annotated {@link CachedService}.
  *
  * @author Simon Baslé
  */
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = CacheEnabledTestConfiguration.class)
-public class CouchbaseCacheWiringTest {
+public class AbstractCouchbaseCacheWiringTest {
 
   @Autowired
-  protected CachedService service;
+  public Cluster cluster;
 
   @Autowired
-  protected CacheManager cacheManager;
+  public Bucket bucket;
 
   @Autowired
-  protected Bucket bucket;
+  public CacheBuilder defaultBuilder;
+
+  @Autowired
+  public CouchbaseCacheManager cacheManager;
+
+  @Autowired
+  public CachedService service;
 
   @After
   public void cleanCache() {
     Cache cache = cacheManager.getCache(CacheEnabledTestConfiguration.DATA_CACHE_NAME);
     cache.clear();
   }
+
+
 
   @Test
   public void testCachingOccurs() {

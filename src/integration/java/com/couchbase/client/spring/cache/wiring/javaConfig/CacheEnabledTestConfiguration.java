@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.couchbase.client.spring.cache.wiring;
+package com.couchbase.client.spring.cache.wiring.javaConfig;
 
 import com.couchbase.client.spring.cache.CouchbaseCacheManager;
 import com.couchbase.client.spring.cache.CacheBuilder;
 import com.couchbase.client.spring.cache.TestConfiguration;
+import com.couchbase.client.spring.cache.wiring.CachedService;
 
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -33,13 +34,18 @@ import org.springframework.context.annotation.Configuration;
  */
 @EnableCaching
 @Configuration
-@ComponentScan
+@ComponentScan(basePackageClasses = CachedService.class)
 public class CacheEnabledTestConfiguration extends TestConfiguration {
 
   public static final String DATA_CACHE_NAME = "dataCache";
 
   @Bean
+  public CacheBuilder defaultBuilder() {
+    return CacheBuilder.newInstance(bucket());
+  }
+
+  @Bean
   public CacheManager cacheManager() {
-    return new CouchbaseCacheManager(CacheBuilder.newInstance(bucket()), DATA_CACHE_NAME);
+    return new CouchbaseCacheManager(defaultBuilder(), DATA_CACHE_NAME);
   }
 }
