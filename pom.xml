@@ -118,6 +118,12 @@
                     <include>**/*.xml</include>
                 </includes>
             </testResource>
+            <testResource>
+                <directory>${project.build.testSourceDirectory}/../resources</directory>
+                <includes>
+                    <include>**/*</include>
+                </includes>
+            </testResource>
         </testResources>
         <plugins>
             <plugin>
