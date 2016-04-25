@@ -3,20 +3,27 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cache="http://www.springframework.org/schema/cache"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd">
 
-    <bean id="couchbaseCluster" class="com.couchbase.client.java.CouchbaseCluster" factory-method="create">
-        <constructor-arg>
+    <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations">
             <list>
-                <!-- list the IP/hostnames to bootstrap from (recommended: 2) -->
-                <value>127.0.0.1</value>
+                <value>classpath:couchbase-cache.properties</value>
             </list>
-        </constructor-arg>
+        </property>
+    </bean>
+
+    <bean id="clusterIPs" class="org.springframework.util.StringUtils" factory-method="commaDelimitedListToStringArray">
+        <constructor-arg type="java.lang.String" value="${couchbase.cache.cluster}"/>
+    </bean>
+
+    <bean id="couchbaseCluster" class="com.couchbase.client.java.CouchbaseCluster" factory-method="create">
+        <constructor-arg ref="clusterIPs" />
     </bean>
 
     <bean id="couchbaseBucket" class="com.couchbase.client.java.Bucket"
           factory-bean="couchbaseCluster" factory-method="openBucket">
         <!-- specify the bucket and password to use -->
-        <constructor-arg index="0" type="java.lang.String" value="default"/>
-        <constructor-arg index="1" type="java.lang.String" value=""/>
+        <constructor-arg index="0" type="java.lang.String" value="${couchbase.cache.bucket}"/>
+        <constructor-arg index="1" type="java.lang.String" value="${couchbase.cache.password}"/>
     </bean>
 
     <bean id="couchbaseCacheBuilder" class="com.couchbase.client.spring.cache.CacheBuilder"

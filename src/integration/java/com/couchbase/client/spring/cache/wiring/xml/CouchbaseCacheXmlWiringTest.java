@@ -15,29 +15,19 @@
  */
 package com.couchbase.client.spring.cache.wiring.xml;
 
-import static org.junit.Assert.*;
-
 import java.util.HashSet;
 import java.util.Set;
 
-import com.couchbase.client.java.Bucket;
-import com.couchbase.client.java.Cluster;
-import com.couchbase.client.spring.cache.CacheBuilder;
-import com.couchbase.client.spring.cache.CouchbaseCacheManager;
 import com.couchbase.client.spring.cache.wiring.AbstractCouchbaseCacheWiringTest;
 import com.couchbase.client.spring.cache.wiring.CachedService;
-import com.couchbase.client.spring.cache.wiring.javaConfig.CacheEnabledTestConfiguration;
-import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.Cache;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.interceptor.SimpleKey;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Test case for the xml driven configuration, wiring and execution of a {@link Cacheable}-annotated

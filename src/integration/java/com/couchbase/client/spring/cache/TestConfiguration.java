@@ -15,12 +15,16 @@
  */
 package com.couchbase.client.spring.cache;
 
+import java.util.List;
+
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.CouchbaseCluster;
-
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
 /**
  * Spring Configuration for basic integration tests.
@@ -28,27 +32,44 @@ import org.springframework.context.annotation.Configuration;
  * @author Simon Baslé
  */
 @Configuration
+@PropertySource("classpath:couchbase-cache.properties")
 public class TestConfiguration {
 
-  public String seedNode() {
-    return System.getProperty("couchbase.seedNode", "127.0.0.1");
-  }
+    @Value("#{'${couchbase.cache.cluster}'.split(',')}")
+    private List<String> nodes;
 
-  public String bucketName() {
-    return System.getProperty("couchbase.bucketName", "default");
-  }
-  public String bucketPassword() {
-    return System.getProperty("couchbase.bucketPassword", "");
-  }
+    @Value("${couchbase.cache.bucket}")
+    private String bucketName;
 
-  @Bean(destroyMethod = "disconnect")
-  public Cluster cluster() {
-    return CouchbaseCluster.create(seedNode());
-  }
+    @Value("${couchbase.cache.password}")
+    private String bucketPassword;
 
-  @Bean(destroyMethod = "close")
-  public Bucket bucket() {
-    return cluster().openBucket(bucketName(), bucketPassword());
-  }
+    public String seedNode() {
+        return System.getProperty("couchbase.seedNode",
+          nodes == null || nodes.isEmpty() ? "127.0.0.1" : nodes.get(0));
+    }
 
+    public String bucketName() {
+        return System.getProperty("couchbase.bucketName",
+          bucketName == null || bucketName.isEmpty() ? "default" : bucketName);
+    }
+
+    public String bucketPassword() {
+        return System.getProperty("couchbase.bucketPassword", bucketName == null ? "" : bucketPassword);
+    }
+
+    @Bean(destroyMethod = "disconnect")
+    public Cluster cluster() {
+        return CouchbaseCluster.create(seedNode());
+    }
+
+    @Bean(destroyMethod = "close")
+    public Bucket bucket() {
+        return cluster().openBucket(bucketName(), bucketPassword());
+    }
+
+    @Bean
+    public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
+        return new PropertySourcesPlaceholderConfigurer();
+    }
 }
