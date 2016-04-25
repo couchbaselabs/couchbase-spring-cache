@@ -110,6 +110,7 @@
     </dependencyManagement>
 
     <build>
+        <testSourceDirectory>src/integration/java</testSourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
