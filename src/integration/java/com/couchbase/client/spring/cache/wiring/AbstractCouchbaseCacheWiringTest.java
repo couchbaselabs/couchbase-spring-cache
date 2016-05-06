@@ -40,7 +40,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
  *
  * @author Simon Baslé
  */
-public class AbstractCouchbaseCacheWiringTest {
+public abstract class AbstractCouchbaseCacheWiringTest {
 
   @Autowired
   public Cluster cluster;
