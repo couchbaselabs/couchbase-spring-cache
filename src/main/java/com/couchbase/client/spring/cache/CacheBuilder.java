@@ -2,6 +2,8 @@ package com.couchbase.client.spring.cache;
 
 import com.couchbase.client.java.Bucket;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * A builder for {@link CouchbaseCache} instance.
  *
@@ -43,10 +45,25 @@ public class CacheBuilder {
   /**
    * Give a default expiration (or TTL) to the cache to be built.
    *
+   * This method will convert the given MS to seconds and call {@link #withExpiration(int)}
+   * internally.
+   *
    * @param expiration the expiration delay in milliseconds.
    * @return this builder for chaining.
+   * @deprecated use {@link #withExpiration(int)} in seconds instead.
    */
+  @Deprecated
   public CacheBuilder withExpirationInMillis(int expiration) {
+    return withExpiration((int) TimeUnit.MILLISECONDS.toSeconds(expiration));
+  }
+
+  /**
+   * Give a default expiration (or TTL) to the cache to be built in seconds.
+   *
+   * @param expiration the expiration delay in in seconds.
+   * @return this builder for chaining purposes.
+   */
+  public CacheBuilder withExpiration(int expiration) {
     this.cacheExpiry = expiration;
     return this;
   }
