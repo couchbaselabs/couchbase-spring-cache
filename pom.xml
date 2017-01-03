@@ -170,6 +170,12 @@
                 </executions>
             </plugin>
         </plugins>
+
+        <testResources>
+            <testResource>
+                <directory>src/integration/java</directory>
+            </testResource>
+        </testResources>
     </build>
 
     <profiles>

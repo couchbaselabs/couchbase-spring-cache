@@ -102,7 +102,7 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void testCacheInitWithCommonTtl() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-            defaultCacheBuilder.withExpirationInMillis(100), "cache1", "cache2");
+            defaultCacheBuilder.withExpiration(100), "cache1", "cache2");
     manager.afterPropertiesSet();
 
     assertThat(manager.getCacheNames(), hasItems("cache1", "cache2"));
@@ -118,8 +118,8 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void testCacheInitWithCustomTtl() {
     Map<String, CacheBuilder> cacheConfigs = new LinkedHashMap<String, CacheBuilder>();
-    cacheConfigs.put("cache1", CacheBuilder.newInstance(client).withExpirationInMillis(100));
-    cacheConfigs.put("cache2", CacheBuilder.newInstance(client).withExpirationInMillis(200));
+    cacheConfigs.put("cache1", CacheBuilder.newInstance(client).withExpiration(100));
+    cacheConfigs.put("cache2", CacheBuilder.newInstance(client).withExpiration(200));
     CouchbaseCacheManager manager = new CouchbaseCacheManager(cacheConfigs);
     manager.afterPropertiesSet();
 
@@ -134,7 +134,7 @@ public class CouchbaseCacheManagerTests {
   public void testCacheInitWithSingleConfig() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
             Collections.singletonMap("test",
-                    CacheBuilder.newInstance(client).withExpirationInMillis(100)));
+                    CacheBuilder.newInstance(client).withExpiration(100)));
 
     manager.afterPropertiesSet();
 
@@ -160,9 +160,9 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void testCacheInitWithThreeConfigs() {
     Map<String, CacheBuilder> cacheConfigs = new LinkedHashMap<String, CacheBuilder>();
-    cacheConfigs.put("cache1", CacheBuilder.newInstance(client).withExpirationInMillis(100));
-    cacheConfigs.put("cache2", CacheBuilder.newInstance(client).withExpirationInMillis(200));
-    cacheConfigs.put("cache3", CacheBuilder.newInstance(client).withExpirationInMillis(300));
+    cacheConfigs.put("cache1", CacheBuilder.newInstance(client).withExpiration(100));
+    cacheConfigs.put("cache2", CacheBuilder.newInstance(client).withExpiration(200));
+    cacheConfigs.put("cache3", CacheBuilder.newInstance(client).withExpiration(300));
     CouchbaseCacheManager manager = new CouchbaseCacheManager(cacheConfigs);
 
     manager.afterPropertiesSet();
@@ -177,9 +177,9 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void testCacheInitWithConfigIgnoresDuplicates() {
     Map<String, CacheBuilder> cacheConfigs = new LinkedHashMap<String, CacheBuilder>();
-    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpirationInMillis(100));
-    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpirationInMillis(200));
-    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpirationInMillis(300));
+    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpiration(100));
+    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpiration(200));
+    cacheConfigs.put("test", CacheBuilder.newInstance(client).withExpiration(300));
 
     CouchbaseCacheManager manager = new CouchbaseCacheManager(cacheConfigs);
     manager.afterPropertiesSet();
@@ -192,7 +192,7 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void testCacheInitWithConfigIgnoresNullVararg() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-            defaultCacheBuilder.withExpirationInMillis(400));
+            defaultCacheBuilder.withExpiration(400));
     manager.afterPropertiesSet();
 
     assertThat(manager.getCacheNames().size(), equalTo(0));
@@ -222,7 +222,7 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void testDynamicCacheInitWithTtl() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-        defaultCacheBuilder.withExpirationInMillis(20));
+        defaultCacheBuilder.withExpiration(20));
     manager.afterPropertiesSet();
     Cache expiringCache = manager.getCache("testExpiring");
 
@@ -235,7 +235,7 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void disableDynamicMode() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-            defaultCacheBuilder.withExpirationInMillis(20));
+            defaultCacheBuilder.withExpiration(20));
     manager.afterPropertiesSet();
 
     manager.setDefaultCacheBuilder(null);
@@ -247,7 +247,7 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void prepareCache() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-            defaultCacheBuilder.withExpirationInMillis(20));
+            defaultCacheBuilder.withExpiration(20));
     manager.prepareCache("test");
     manager.afterPropertiesSet();
 
@@ -259,7 +259,7 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void prepareCacheNoBuilder() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-            defaultCacheBuilder.withExpirationInMillis(20), "test");
+            defaultCacheBuilder.withExpiration(20), "test");
 
     thrown.expect(IllegalStateException.class);
     manager.prepareCache("another");
@@ -268,8 +268,8 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void prepareCacheCustomBuilder() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-            defaultCacheBuilder.withExpirationInMillis(20));
-    manager.prepareCache("test", CacheBuilder.newInstance(client).withExpirationInMillis(400));
+            defaultCacheBuilder.withExpiration(20));
+    manager.prepareCache("test", CacheBuilder.newInstance(client).withExpiration(400));
     manager.afterPropertiesSet();
 
     assertThat(manager.getCacheNames(), hasItems("test"));
@@ -280,11 +280,11 @@ public class CouchbaseCacheManagerTests {
   @Test
   public void prepareCacheCacheManagerInitialized() {
     CouchbaseCacheManager manager = new CouchbaseCacheManager(
-            defaultCacheBuilder.withExpirationInMillis(20));
+            defaultCacheBuilder.withExpiration(20));
     manager.afterPropertiesSet();
 
     thrown.expect(IllegalStateException.class);
-    manager.prepareCache("test", CacheBuilder.newInstance(client).withExpirationInMillis(400));
+    manager.prepareCache("test", CacheBuilder.newInstance(client).withExpiration(400));
   }
 
   private static void assertCache(CacheManager cacheManager, String name, Bucket client, int ttl) {

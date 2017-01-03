@@ -48,6 +48,9 @@ public class CacheBuilder {
    * This method will convert the given MS to seconds and call {@link #withExpiration(int)}
    * internally.
    *
+   * **If you use this method with an expiration < 1000, it will be 0 and the document will not be
+   * deleted automatically.**
+   *
    * @param expiration the expiration delay in milliseconds.
    * @return this builder for chaining.
    * @deprecated use {@link #withExpiration(int)} in seconds instead.
