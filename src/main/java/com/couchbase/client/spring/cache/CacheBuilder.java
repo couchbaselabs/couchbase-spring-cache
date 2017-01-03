@@ -46,10 +46,8 @@ public class CacheBuilder {
    * Give a default expiration (or TTL) to the cache to be built.
    *
    * This method will convert the given MS to seconds and call {@link #withExpiration(int)}
-   * internally.
-   *
-   * **If you use this method with an expiration < 1000, it will be 0 and the document will not be
-   * deleted automatically.**
+   * internally. If you use this method with an expiration less than 1000, it will be 0 and the document will not be
+   * deleted automatically.
    *
    * @param expiration the expiration delay in milliseconds.
    * @return this builder for chaining.
