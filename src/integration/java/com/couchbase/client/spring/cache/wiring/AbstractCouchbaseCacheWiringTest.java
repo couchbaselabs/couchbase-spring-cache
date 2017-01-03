@@ -40,7 +40,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
  *
  * @author Simon Baslé
  */
-public class AbstractCouchbaseCacheWiringTest {
+public abstract class AbstractCouchbaseCacheWiringTest {
 
   @Autowired
   public Cluster cluster;
@@ -62,8 +62,6 @@ public class AbstractCouchbaseCacheWiringTest {
     Cache cache = cacheManager.getCache(CacheEnabledTestConfiguration.DATA_CACHE_NAME);
     cache.clear();
   }
-
-
 
   @Test
   public void testCachingOccurs() {
