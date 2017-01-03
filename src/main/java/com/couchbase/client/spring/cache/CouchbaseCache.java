@@ -188,7 +188,6 @@ public class CouchbaseCache implements Cache {
     return (doc == null) ? null : (T) doc.content();
   }
 
-  //TODO in 4.3, override and throw a ValueRetrievalException
   /**
    * Return the value to which this cache maps the specified key, obtaining
    * that value from {@code valueLoader} if necessary. This method provides
@@ -206,7 +205,7 @@ public class CouchbaseCache implements Cache {
    * @throws RuntimeException if the {@code valueLoader} throws an exception
    * @since 4.3
    */
-//  @Override
+  @Override
   public <T> T get(final Object key, final Callable<T> valueLoader) {
     final String documentId = getDocumentId(key.toString());
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
@@ -218,12 +217,10 @@ public class CouchbaseCache implements Cache {
             T value = valueLoader.call();
             put(key, value);
             return value;
-          //TODO in 4.3, both RuntimeException below should be replaced by ValueRetrievalException
-          } catch (RuntimeException e) {
-            throw e;
+          } catch (ValueRetrievalException ex) {
+            throw ex;
           } catch (Exception e) {
-//            throw new ValueRetrievalException(key, valueLoader, e);
-            throw new RuntimeException(String.format("Failed to load key %s using valueLoader %s", key, valueLoader.getClass().getName()));
+            throw new ValueRetrievalException(key, valueLoader, e);
           }
         }
       }
