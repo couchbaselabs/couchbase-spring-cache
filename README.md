@@ -1,7 +1,7 @@
-# couchbase-spring-cache 2.0.0
+# couchbase-spring-cache 2.1.0
 An implementation for Spring Cache based on Couchbase Java SDK 2.x
 
-Suitable to work with Spring Data Couchbase 2.0.x and above, as the two projects can share the same backing SDK `Cluster` and `Bucket`s. This is especially awesome for Spring Boot apps (both Spring Data Couchbase and Couchbase Spring Cache are included in Spring Boot 1.4.0).
+Suitable to work with Spring Data Couchbase 2.0.x and above, as the two projects can share the same backing SDK `Cluster` and `Bucket`s. This is especially awesome for Spring Boot apps (both Spring Data Couchbase and Couchbase Spring Cache are included in Spring Boot 1.4.0 and up).
 
 ## Usage
 Instantiate a `CouchbaseCacheManager` using `CacheBuilder` to either create several caches sharing the same template or a map of builders to individually customize several preloaded caches.
@@ -32,7 +32,7 @@ Release 2.0.0 is available on Maven Central. Edit your `pom.xml` and add the fol
 <dependency>
     <groupId>com.couchbase.client</groupId>
     <artifactId>couchbase-spring-cache</artifactId>
-    <version>2.0.0</version>
+    <version>2.1.0</version>
 </dependency>
 ```
 
