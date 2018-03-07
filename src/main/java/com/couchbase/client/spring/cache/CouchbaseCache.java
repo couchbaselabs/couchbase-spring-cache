@@ -21,13 +21,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.Cache;
+import org.springframework.cache.support.SimpleValueWrapper;
+
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.bucket.BucketManager;
+import com.couchbase.client.java.bucket.BucketType;
 import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.SerializableDocument;
 import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.DocumentAlreadyExistsException;
 import com.couchbase.client.java.error.QueryExecutionException;
+import com.couchbase.client.java.query.N1qlParams;
+import com.couchbase.client.java.query.N1qlQuery;
+import com.couchbase.client.java.query.dsl.Expression;
 import com.couchbase.client.java.view.AsyncViewResult;
 import com.couchbase.client.java.view.AsyncViewRow;
 import com.couchbase.client.java.view.DefaultView;
@@ -35,13 +44,9 @@ import com.couchbase.client.java.view.DesignDocument;
 import com.couchbase.client.java.view.Stale;
 import com.couchbase.client.java.view.View;
 import com.couchbase.client.java.view.ViewQuery;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 import rx.Observable;
 import rx.functions.Func1;
-
-import org.springframework.cache.Cache;
-import org.springframework.cache.support.SimpleValueWrapper;
 
 /**
  * The {@link CouchbaseCache} class implements the Spring {@link Cache} interface on top of Couchbase Server and the
@@ -53,6 +58,7 @@ import org.springframework.cache.support.SimpleValueWrapper;
  * @author Michael Nitschinger
  * @author Simon Baslé
  * @author Konrad Król
+ * @author Jonathan Edwards
  */
 public class CouchbaseCache implements Cache {
 
@@ -76,25 +82,41 @@ public class CouchbaseCache implements Cache {
   /**
    * Delimiter for separating the name from the key in the document id of objects in this cache
    */
-  private final String DELIMITER = ":";
+  private static final String DELIMITER = ":";
 
   /**
    * Prefix for identifying all keys relative to {@link CouchbaseCache}s. Given a {@link #DELIMITER} of ':', such keys
    * are in the form <code>CACHE_PREFIX:CACHE_NAME:key</code>. If the cache doesn't have a name it'll be
    * <code>CACHE_PREFIX::key</code>.
    */
-  private final String CACHE_PREFIX = "cache";
+  private static final String CACHE_PREFIX = "cache";
 
   /**
    * The design document of the view used by this cache to retrieve documents in a specific namespace.
    */
-  private final String CACHE_DESIGN_DOCUMENT = "cache";
+  private static final String CACHE_DESIGN_DOCUMENT = "cache";
 
   /**
    * The name of the view used by this cache to retrieve documents in a specific namespace.
    */
-  private final String CACHE_VIEW = "names";
+  private static final String CACHE_VIEW = "names";
 
+  /**
+   * Index that optimizes CACHE_CLEAR_N1QL_QUERY by pre-splitting the docId keys
+   * into [0] CACHE_PREFIX and [1] CACHE_NAME.
+   */
+  private static final String CACHE_CLEAR_N1QL_INDEX = "DISTINCT ARRAY_APPEND([],[SPLIT(meta().id,\"" + DELIMITER
+      + "\")[0],SPLIT(meta().id,\"" + DELIMITER + "\")[1]])";
+
+  /**
+   * Parameterized N1QL query that deletes all documents from given cache region
+   * (region defined by CACHE_PREFIX + CACHE_NAME)
+   */
+  private static final String CACHE_CLEAR_N1QL_QUERY = "DELETE FROM $bucketName WHERE ANY docIdFragment IN ARRAY_APPEND([],[SPLIT(meta().id,\""
+      + DELIMITER + "\")[0],SPLIT(meta().id,\"" + DELIMITER
+      + "\")[1]]) SATISFIES docIdFragment = [$cachePrefix,$cacheName] END";
+      
+  
   /**
    * Determines whether to always use the flush() method to clear the cache.
    */
@@ -327,60 +349,150 @@ public class CouchbaseCache implements Cache {
       return CACHE_PREFIX + DELIMITER + name + DELIMITER + key;
   }
 
+  /**
+   * Interrogate the provided bucket to determine type, and use async View query
+   * or async N1QL query as appropriate:
+   * <ul>
+   * <li>EPHEMERAL buckets don't support Views, so eviction must be handled via
+   * async N1QL Query (prepared statement using the index setup in
+   * <code>ensureN1qlIndexExists()</code>).</li>
+   * <li>MEMCACHED buckets don't support either Views or N1QL, so you MUST
+   * setAlwaysFlush(true) and use the clear() method.</li>
+   * <li>COUCHBASE buckets support Views AND N1QL, but continue to use async View
+   * query for backward compatibility.</li>
+   * </ul>
+   * 
+   * @throws UnsupportedOperationException
+   *             if MEMCACHED or unknown bucket type encountered.
+   */
   private void evictAllDocuments() {
-    ViewQuery query = ViewQuery.from(CACHE_DESIGN_DOCUMENT, CACHE_VIEW);
-    query.stale(Stale.FALSE);
-    if (name == null || name.trim().length() == 0) {
-      query.key("");
-    } else {
-      query.key(name);
-    }
 
-    client.async()
-        .query(query)
-        .flatMap(ROW_IDS_OR_ERROR)
-        .flatMap(new Func1<String, Observable<? extends Document>>() {
-          @Override
-          public Observable<? extends Document> call(String id) {
-            return client.async().remove(id, SerializableDocument.class);
-          }
-        })
-        .toBlocking()
-        .lastOrDefault(null); //ignore empty cache
+    BucketType bucketType = client.bucketManager().info().type();
+
+    if (BucketType.EPHEMERAL == bucketType) {
+      evictAllDocumentsN1ql();
+    } else if (BucketType.MEMCACHED == bucketType) {
+      throw (new UnsupportedOperationException("Cannot use View or N1QL to evict all documents from bucket"
+          + this.name + "{" + bucketType
+          + "}; for MEMCACHED-type buckets, you must set setAlwaysFlush(true) and use clear() method instead."));
+    } else if (BucketType.COUCHBASE == bucketType) {
+      ViewQuery query = ViewQuery.from(CACHE_DESIGN_DOCUMENT, CACHE_VIEW);
+      query.stale(Stale.FALSE);
+      if (name == null || name.trim().length() == 0) {
+        query.key("");
+      } else {
+        query.key(name);
+      }
+
+      client.async().query(query).flatMap(ROW_IDS_OR_ERROR)
+          .flatMap(new Func1<String, Observable<? extends Document>>() {
+            @Override
+            public Observable<? extends Document> call(String id) {
+              return client.async().remove(id, SerializableDocument.class);
+            }
+          }).toBlocking().lastOrDefault(null); // ignore empty cache
+    } else {
+      throw (new UnsupportedOperationException(
+          "Unknown Couchbase BucketType encountered: " + bucketType + "; unable to evict documents."));
+    }
   }
 
+  /**
+   * Delete all items for a given cache region (this.name) in the active cache
+   * bucket (client). Presumes that the necessary indexes have been created
+   * via @see ensureN1qlIndexExists().
+   **/
+  private void evictAllDocumentsN1ql() {
+    JsonObject namedParams = JsonObject.create().put("$bucketName", client.name()).put("$cachePrefix", CACHE_PREFIX)
+        .put("$cacheName", this.name);
+
+    N1qlQuery n1qlQuery = N1qlQuery.parameterized(CACHE_CLEAR_N1QL_QUERY, namedParams,
+        N1qlParams.build().adhoc(false));
+    client.async().query(n1qlQuery);
+  }
+
+  /**
+   * Interrogate the provided bucket to determine type, and spin up View or N1QL
+   * Index as appropriate:
+   * <ul>
+   * <li>EPHEMERAL buckets don't support Views, so eviction must be handled via
+   * N1QL Index (and associated Query).</li>
+   * <li>MEMCACHED buckets don't support either Views or N1QL, so you MUST
+   * setAlwaysFlush(true) and use the clear() method.</li>
+   * <li>COUCHBASE buckets support Views AND N1QL, but continue to use Views for
+   * backward compatibility.</li>
+   * </ul>
+   * 
+   * @throws UnsupportedOperationException
+   *             if MEMCACHED or unknown bucket type encountered.
+   */
   private void ensureViewExists() {
     BucketManager bucketManager = client.bucketManager();
-    DesignDocument doc = null;
+    BucketType bucketType = bucketManager.info().type();
 
-    try {
-      doc = bucketManager.getDesignDocument(CACHE_DESIGN_DOCUMENT);
-    } catch (Exception e) {
-      if (logger.isDebugEnabled()) {
-        logger.debug("Unable to retrieve design document " + CACHE_DESIGN_DOCUMENT, e);
+    if (BucketType.EPHEMERAL == bucketType) {
+      ensureN1qlIndexExists();
+    } else if (BucketType.MEMCACHED == bucketType) {
+      throw (new UnsupportedOperationException("Cannot use View or N1QL Index on configured Cache bucket "
+          + this.name + "{" + bucketType
+          + "}; for MEMCACHED-type buckets, you must set setAlwaysFlush(true) and use clear() method instead."));
+
+    } else if (BucketType.COUCHBASE == bucketType) {
+      DesignDocument doc = null;
+
+      try {
+        doc = bucketManager.getDesignDocument(CACHE_DESIGN_DOCUMENT);
+      } catch (Exception e) {
+        if (logger.isDebugEnabled()) {
+          logger.debug("Unable to retrieve design document " + CACHE_DESIGN_DOCUMENT, e);
+        }
       }
-    }
 
-    if(doc != null) {
-      for(View view : doc.views()) {
-        if(CACHE_VIEW.equals(view.name()))
-          return;
+      if (doc != null) {
+        for (View view : doc.views()) {
+          if (CACHE_VIEW.equals(view.name()))
+            return;
+        }
       }
-    }
 
-    String function = "function (doc, meta) {var tokens = meta.id.split('" + DELIMITER + "'); if(tokens.length > 2 && " +
-        "tokens[0] == '" + CACHE_PREFIX + "') emit(tokens[1]);}";
-    View v = DefaultView.create(CACHE_VIEW, function);
+      String function = "function (doc, meta) {var tokens = meta.id.split('" + DELIMITER
+          + "'); if(tokens.length > 2 && " + "tokens[0] == '" + CACHE_PREFIX + "') emit(tokens[1]);}";
+      View v = DefaultView.create(CACHE_VIEW, function);
 
-    if (doc == null) {
-      List<View> viewList = new ArrayList<View>(1);
-      viewList.add(v);
-      doc = DesignDocument.create(CACHE_DESIGN_DOCUMENT, viewList);
+      if (doc == null) {
+        List<View> viewList = new ArrayList<View>(1);
+        viewList.add(v);
+        doc = DesignDocument.create(CACHE_DESIGN_DOCUMENT, viewList);
+      } else {
+        doc.views().add(v);
+      }
+
+      bucketManager.upsertDesignDocument(doc);
     } else {
-      doc.views().add(v);
+      throw (new UnsupportedOperationException(
+          "Unknown Couchbase BucketType encountered: " + bucketType + "; unable to prepare View or Index."));
     }
+  }
 
-    bucketManager.upsertDesignDocument(doc);
+  /**
+   * Ensure that the primary GSI and secondary GSI indexes exist on the named
+   * cache bucket. The secondary GSI will be the one that is responsible for
+   * creating an optimized index around the first and second tokens of the cache
+   * docIds (CACHE_PREFIX + ":" + CACHE_NAME + ":" + KEY).
+   * 
+   * Only used if the given bucket doesn't support View (i.e. Ephemeral Buckets).
+   * 
+   */
+  private void ensureN1qlIndexExists() {
+
+    final String primaryIndexName = "CouchbaseCache_managed_primary_idx_" + client.name();
+
+    client.bucketManager().createN1qlPrimaryIndex(primaryIndexName, true, false);
+
+    final String secondaryIndexName = "CouchbaseCache_managed_cachePrefixAndName_idx_" + client.name();
+
+    client.bucketManager().createN1qlIndex(secondaryIndexName, true, false, Expression.x(CACHE_CLEAR_N1QL_INDEX));
+
   }
 
   /**
