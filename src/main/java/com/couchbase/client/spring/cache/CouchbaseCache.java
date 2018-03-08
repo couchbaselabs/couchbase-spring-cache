@@ -74,6 +74,8 @@ public class CouchbaseCache implements Cache {
    */
   private final String name;
   
+  private final int nameLength;
+  
   /**
    * TTL value for objects in this cache
    */
@@ -90,6 +92,8 @@ public class CouchbaseCache implements Cache {
    * <code>CACHE_PREFIX::key</code>.
    */
   private static final String CACHE_PREFIX = "cache";
+  
+  private static final int CACHE_PREFIX_LENGTH = CACHE_PREFIX.length();
 
   /**
    * The design document of the view used by this cache to retrieve documents in a specific namespace.
@@ -130,6 +134,7 @@ public class CouchbaseCache implements Cache {
    */
   public CouchbaseCache(final String name, final Bucket client) {
     this.name = name;
+    this.nameLength = name.length();
     this.client = client;
     this.ttl = 0;
 
@@ -146,6 +151,7 @@ public class CouchbaseCache implements Cache {
    */
   public CouchbaseCache(final String name, final Bucket client, int ttl) {
     this.name = name;
+    this.nameLength = name.length();
     this.client = client;
     this.ttl = ttl;
 
@@ -342,12 +348,26 @@ public class CouchbaseCache implements Cache {
    * @param key the cache key to transform to a Couchbase key.
    * @return the Couchbase key to use for storage.
    */
-  protected String getDocumentId(String key) {
-    if(name == null || name.trim().length() == 0)
-      return CACHE_PREFIX + DELIMITER + DELIMITER + key;
-    else
-      return CACHE_PREFIX + DELIMITER + name + DELIMITER + key;
-  }
+	protected String getDocumentId(String key) {
+		StringBuilder keyBuilder = new StringBuilder(CACHE_PREFIX_LENGTH + this.nameLength + key.length() + 2);
+
+		if (name == null || name.trim().length() == 0) {
+			keyBuilder.append(CACHE_PREFIX)
+				.append(DELIMITER)
+				.append(DELIMITER)
+				.append(key)
+				.toString();
+		} else {
+			keyBuilder.append(CACHE_PREFIX)
+				.append(DELIMITER)
+				.append(name)
+				.append(DELIMITER)
+				.append(key)
+				.toString();
+		}
+
+		return keyBuilder.toString();
+	}
 
   /**
    * Interrogate the provided bucket to determine type, and use async View query
