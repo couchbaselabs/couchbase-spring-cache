@@ -285,7 +285,7 @@ public class CouchbaseCache implements Cache {
   @Override
   public final void evict(final Object key) {
     String documentId = getDocumentId(key.toString());
-    client.remove(documentId);
+    client.async().remove(documentId);
   }
 
   /**
