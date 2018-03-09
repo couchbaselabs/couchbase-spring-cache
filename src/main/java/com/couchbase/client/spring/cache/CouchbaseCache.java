@@ -33,6 +33,7 @@ import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.SerializableDocument;
 import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.DocumentAlreadyExistsException;
+import com.couchbase.client.java.error.DocumentDoesNotExistException;
 import com.couchbase.client.java.error.QueryExecutionException;
 import com.couchbase.client.java.query.N1qlParams;
 import com.couchbase.client.java.query.N1qlQuery;
@@ -64,6 +65,7 @@ public class CouchbaseCache implements Cache {
 
   private static final ValueWrapper EMPTY_WRAPPER = new SimpleValueWrapper(null);
   private final Logger logger = LoggerFactory.getLogger(CouchbaseCache.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseCache.class);
   /**
    * The actual SDK {@link Bucket} instance.
    */
@@ -285,7 +287,17 @@ public class CouchbaseCache implements Cache {
   @Override
   public final void evict(final Object key) {
     String documentId = getDocumentId(key.toString());
-    client.async().remove(documentId);
+    try {
+    		client.remove(documentId);
+    		if(LOGGER.isDebugEnabled()) {
+    			LOGGER.debug("Evicted document: " + documentId);
+    		}
+    } catch(DocumentDoesNotExistException e) {
+    		if(LOGGER.isDebugEnabled()) {
+    			LOGGER.debug("Attempted to evict non-existent document: " + documentId);
+    		}
+    }
+    return;
   }
 
   /**
