@@ -64,7 +64,6 @@ import rx.functions.Func1;
 public class CouchbaseCache implements Cache {
 
   private static final ValueWrapper EMPTY_WRAPPER = new SimpleValueWrapper(null);
-  private final Logger logger = LoggerFactory.getLogger(CouchbaseCache.class);
   private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseCache.class);
   /**
    * The actual SDK {@link Bucket} instance.
@@ -193,6 +192,15 @@ public class CouchbaseCache implements Cache {
   @Override
   public final ValueWrapper get(final Object key) {
     String documentId = getDocumentId(key.toString());
+	if(LOGGER.isDebugEnabled()) {
+		LOGGER.debug(new StringBuilder()
+				.append("Looking in cache bucket ")
+				.append(client.name())
+				.append(" for document ")
+				.append(documentId)
+				.toString());
+	}
+	
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
     if (doc == null) {
       return null;
@@ -213,6 +221,15 @@ public class CouchbaseCache implements Cache {
   @Override
   public final <T> T get(final Object key, final Class<T> clazz) {
     String documentId = getDocumentId(key.toString());
+	if(LOGGER.isDebugEnabled()) {
+		LOGGER.debug(new StringBuilder()
+				.append("Looking in cache bucket ")
+				.append(client.name())
+				.append(" for document ")
+				.append(documentId)
+				.toString());
+	}
+	
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
 
     return (doc == null) ? null : (T) doc.content();
@@ -238,6 +255,16 @@ public class CouchbaseCache implements Cache {
   @Override
   public <T> T get(final Object key, final Callable<T> valueLoader) {
     final String documentId = getDocumentId(key.toString());
+    
+	if(LOGGER.isDebugEnabled()) {
+		LOGGER.debug(new StringBuilder()
+				.append("Looking in cache bucket ")
+				.append(client.name())
+				.append(" for document ")
+				.append(documentId)
+				.toString());
+	}
+	
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
     if (doc == null && valueLoader != null) {
       synchronized (client) {
@@ -276,7 +303,18 @@ public class CouchbaseCache implements Cache {
       if (!(value instanceof Serializable)) {
         throw new IllegalArgumentException(String.format("Value %s of type %s is not Serializable", value.toString(), value.getClass().getName()));
       }
+      
       String documentId = getDocumentId(key.toString());
+  	  
+      if(LOGGER.isDebugEnabled()) {
+		  LOGGER.debug(new StringBuilder()
+				.append("Putting document ")
+				.append(documentId)
+				.append(" into cache bucket ")
+				.append(client.name())
+				.toString());
+	  }
+      
       SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
       client.upsert(doc);
     } else {
@@ -318,7 +356,7 @@ public class CouchbaseCache implements Cache {
       try {
         client.bucketManager().flush();
       } catch (Exception e) {
-        logger.error("Couchbase flush error: ", e);
+        LOGGER.error("Couchbase flush error: ", e);
       }
     else
       evictAllDocuments();
@@ -338,6 +376,16 @@ public class CouchbaseCache implements Cache {
       throw new IllegalArgumentException(String.format("Value %s of type %s is not Serializable", value.toString(), value.getClass().getName()));
     }
     String documentId = getDocumentId(key.toString());
+    
+    if(LOGGER.isDebugEnabled()) {
+		  LOGGER.debug(new StringBuilder()
+				.append("Putting (if absent) document ")
+				.append(documentId)
+				.append(" into cache bucket ")
+				.append(client.name())
+				.toString());
+	}
+    
     SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
 
     try {
@@ -475,8 +523,8 @@ public class CouchbaseCache implements Cache {
       try {
         doc = bucketManager.getDesignDocument(CACHE_DESIGN_DOCUMENT);
       } catch (Exception e) {
-        if (logger.isDebugEnabled()) {
-          logger.debug("Unable to retrieve design document " + CACHE_DESIGN_DOCUMENT, e);
+        if (LOGGER.isDebugEnabled()) {
+          LOGGER.debug("Unable to retrieve design document " + CACHE_DESIGN_DOCUMENT, e);
         }
       }
 
