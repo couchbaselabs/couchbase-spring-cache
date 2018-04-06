@@ -37,18 +37,19 @@ public class TestConfiguration {
   public String bucketName() {
     return System.getProperty("couchbase.bucketName", "default");
   }
+  public String bucketUser() { return System.getProperty( "couchbase.bucketUser", "Administrator"); }
   public String bucketPassword() {
-    return System.getProperty("couchbase.bucketPassword", "");
+    return System.getProperty("couchbase.bucketPassword", "password");
   }
 
   @Bean(destroyMethod = "disconnect")
   public Cluster cluster() {
-    return CouchbaseCluster.create(seedNode());
+    return CouchbaseCluster.create(seedNode()).authenticate(bucketUser(), bucketPassword());
   }
 
   @Bean(destroyMethod = "close")
   public Bucket bucket() {
-    return cluster().openBucket(bucketName(), bucketPassword());
+    return cluster().openBucket(bucketName());
   }
 
 }

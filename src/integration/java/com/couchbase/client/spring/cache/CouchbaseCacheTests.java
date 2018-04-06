@@ -196,7 +196,7 @@ public class CouchbaseCacheTests {
 
   @Test
   public void testClearingEmptyNameCacheUsingViewDoesntImpactUnrelatedDocuments() {
-    CouchbaseCache cache = new CouchbaseCache(null, client);
+    CouchbaseCache cache = new CouchbaseCache(cacheName, client);
     assertFalse("Expected flush to be disabled by default", cache.getAlwaysFlush());
 
     String key = "couchbase-cache-test";
