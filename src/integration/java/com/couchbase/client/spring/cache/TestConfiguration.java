@@ -39,7 +39,7 @@ public class TestConfiguration {
   }
   public String bucketUser() { return System.getProperty( "couchbase.bucketUser", "Administrator"); }
   public String bucketPassword() {
-    return System.getProperty("couchbase.bucketPassword", "password");
+    return System.getProperty("couchbase.bucketPassword", "hydro42sigma");
   }
 
   @Bean(destroyMethod = "disconnect")

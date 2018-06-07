@@ -10,7 +10,7 @@
             </list>
         </constructor-arg>
         <constructor-arg index="1" type="java.lang.String" value="Administrator"/>
-        <constructor-arg index="2" type="java.lang.String" value="password" />
+        <constructor-arg index="2" type="java.lang.String" value="hydro42sigma" />
     </bean>
 
     <bean id="couchbaseBucket" class="com.couchbase.client.java.Bucket"
