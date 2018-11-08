@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import com.couchbase.client.java.query.*;
+import com.couchbase.client.java.query.consistency.ScanConsistency;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
@@ -35,8 +37,6 @@ import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.DocumentAlreadyExistsException;
 import com.couchbase.client.java.error.DocumentDoesNotExistException;
 import com.couchbase.client.java.error.QueryExecutionException;
-import com.couchbase.client.java.query.N1qlParams;
-import com.couchbase.client.java.query.N1qlQuery;
 import com.couchbase.client.java.query.dsl.Expression;
 import com.couchbase.client.java.view.AsyncViewResult;
 import com.couchbase.client.java.view.AsyncViewRow;
@@ -48,6 +48,10 @@ import com.couchbase.client.java.view.ViewQuery;
 
 import rx.Observable;
 import rx.functions.Func1;
+
+import static com.couchbase.client.java.query.dsl.Expression.i;
+import static com.couchbase.client.java.query.dsl.Expression.s;
+import static com.couchbase.client.java.query.dsl.Expression.x;
 
 /**
  * The {@link CouchbaseCache} class implements the Spring {@link Cache} interface on top of Couchbase Server and the
@@ -104,16 +108,6 @@ public class CouchbaseCache implements Cache {
    * The name of the view used by this cache to retrieve documents in a specific namespace.
    */
   private static final String CACHE_VIEW = "names";
-
-  /**
-   * Parameterized N1QL query that deletes all documents from given cache region
-   * (region defined by CACHE_PREFIX + CACHE_NAME)
-   */
-  private static final String CACHE_CLEAR_N1QL_QUERY =
-          "DELETE FROM $bucketName" +
-                  " WHERE SPLIT(meta().id,\"" + DELIMITER + "\")[0] = $cachePrefix" +
-                  " AND SPLIT(meta().id,\"" + DELIMITER + "\")[1]= $cacheName";
-
 
   /**
    * Determines whether to always use the flush() method to clear the cache.
@@ -475,14 +469,18 @@ public class CouchbaseCache implements Cache {
    * via @see ensureN1qlIndexExists().
    **/
   private void evictAllDocumentsN1ql() {
-    JsonObject namedParams = JsonObject.create()
-            .put("$bucketName", client.name())
-            .put("$cachePrefix", CACHE_PREFIX)
-            .put("$cacheName", this.name);
+    final N1qlParams params = N1qlParams.build()
+            .adhoc(true) //Save as prepared statement
+            .consistency(ScanConsistency.REQUEST_PLUS);
 
-    N1qlQuery n1qlQuery = N1qlQuery.parameterized(CACHE_CLEAR_N1QL_QUERY, namedParams,
-            N1qlParams.build().adhoc(false));
-    client.async().query(n1qlQuery);
+    final N1qlQuery n1qlQuery = N1qlQuery.simple(Delete.deleteFrom(i(client.name()))
+            .where(x("SPLIT(meta().id,':')[0]").eq(s(CACHE_PREFIX))
+                    .and(x("SPLIT(meta().id,':')[1]").eq(s(this.name)))
+            ),
+            params
+    );
+
+    client.query(n1qlQuery);
   }
 
   /**
