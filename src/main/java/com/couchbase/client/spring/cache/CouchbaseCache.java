@@ -470,7 +470,7 @@ public class CouchbaseCache implements Cache {
    **/
   private void evictAllDocumentsN1ql() {
     final N1qlParams params = N1qlParams.build()
-            .adhoc(true) //Save as prepared statement
+            .adhoc(true) //Do not save as prepared statement
             .consistency(ScanConsistency.REQUEST_PLUS);
 
     final N1qlQuery n1qlQuery = N1qlQuery.simple(Delete.deleteFrom(i(client.name()))
