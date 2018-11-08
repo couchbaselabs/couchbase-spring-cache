@@ -53,13 +53,12 @@ import rx.functions.Func1;
  * The {@link CouchbaseCache} class implements the Spring {@link Cache} interface on top of Couchbase Server and the
  * Couchbase Java SDK 2.x. Note that data persisted by this Cache should be {@link Serializable}.
  *
- * @see <a href="http://static.springsource.org/spring/docs/current/spring-framework-reference/html/cache.html">
- *   Official Spring Cache Reference</a>
- *
  * @author Michael Nitschinger
  * @author Simon Baslé
  * @author Konrad Król
  * @author Jonathan Edwards
+ * @see <a href="http://static.springsource.org/spring/docs/current/spring-framework-reference/html/cache.html">
+ * Official Spring Cache Reference</a>
  */
 public class CouchbaseCache implements Cache {
 
@@ -74,9 +73,9 @@ public class CouchbaseCache implements Cache {
    * The name of the cache.
    */
   private final String name;
-  
+
   private final int nameLength;
-  
+
   /**
    * TTL value for objects in this cache
    */
@@ -93,7 +92,7 @@ public class CouchbaseCache implements Cache {
    * <code>CACHE_PREFIX::key</code>.
    */
   private static final String CACHE_PREFIX = "cache";
-  
+
   private static final int CACHE_PREFIX_LENGTH = CACHE_PREFIX.length();
 
   /**
@@ -107,21 +106,15 @@ public class CouchbaseCache implements Cache {
   private static final String CACHE_VIEW = "names";
 
   /**
-   * Index that optimizes CACHE_CLEAR_N1QL_QUERY by pre-splitting the docId keys
-   * into [0] CACHE_PREFIX and [1] CACHE_NAME.
-   */
-  private static final String CACHE_CLEAR_N1QL_INDEX = "DISTINCT ARRAY_APPEND([],[SPLIT(meta().id,\"" + DELIMITER
-      + "\")[0],SPLIT(meta().id,\"" + DELIMITER + "\")[1]])";
-
-  /**
    * Parameterized N1QL query that deletes all documents from given cache region
    * (region defined by CACHE_PREFIX + CACHE_NAME)
    */
-  private static final String CACHE_CLEAR_N1QL_QUERY = "DELETE FROM $bucketName WHERE ANY docIdFragment IN ARRAY_APPEND([],[SPLIT(meta().id,\""
-      + DELIMITER + "\")[0],SPLIT(meta().id,\"" + DELIMITER
-      + "\")[1]]) SATISFIES docIdFragment = [$cachePrefix,$cacheName] END";
-      
-  
+  private static final String CACHE_CLEAR_N1QL_QUERY =
+          "DELETE FROM $bucketName" +
+                  " WHERE SPLIT(meta().id,\"" + DELIMITER + "\")[0] = $cachePrefix" +
+                  " AND SPLIT(meta().id,\"" + DELIMITER + "\")[1]= $cacheName";
+
+
   /**
    * Determines whether to always use the flush() method to clear the cache.
    */
@@ -130,7 +123,7 @@ public class CouchbaseCache implements Cache {
   /**
    * Construct the cache and pass in the {@link Bucket} instance.
    *
-   * @param name the name of the cache reference.
+   * @param name   the name of the cache reference.
    * @param client the Bucket instance.
    */
   public CouchbaseCache(final String name, final Bucket client) {
@@ -139,16 +132,16 @@ public class CouchbaseCache implements Cache {
     this.client = client;
     this.ttl = 0;
 
-    if(!getAlwaysFlush())
+    if (!getAlwaysFlush())
       ensureViewExists();
   }
 
   /**
    * Construct the cache and pass in the {@link Bucket} instance.
    *
-   * @param name the name of the cache reference.
+   * @param name   the name of the cache reference.
    * @param client the Bucket instance.
-   * @param ttl TTL value for objects in this cache
+   * @param ttl    TTL value for objects in this cache
    */
   public CouchbaseCache(final String name, final Bucket client, int ttl) {
     this.name = name;
@@ -156,7 +149,7 @@ public class CouchbaseCache implements Cache {
     this.client = client;
     this.ttl = ttl;
 
-    if(!getAlwaysFlush())
+    if (!getAlwaysFlush())
       ensureViewExists();
   }
 
@@ -179,28 +172,28 @@ public class CouchbaseCache implements Cache {
   public final Bucket getNativeCache() {
     return client;
   }
-  
+
   /**
    * Returns the TTL value for this cache.
-   * 
+   *
    * @return TTL value
    */
   public final int getTtl() {
-	  return ttl;
+    return ttl;
   }
 
   @Override
   public final ValueWrapper get(final Object key) {
     String documentId = getDocumentId(key.toString());
-	if(LOGGER.isDebugEnabled()) {
-		LOGGER.debug(new StringBuilder()
-				.append("Looking in cache bucket ")
-				.append(client.name())
-				.append(" for document ")
-				.append(documentId)
-				.toString());
-	}
-	
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug(new StringBuilder()
+              .append("Looking in cache bucket ")
+              .append(client.name())
+              .append(" for document ")
+              .append(documentId)
+              .toString());
+    }
+
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
     if (doc == null) {
       return null;
@@ -221,15 +214,15 @@ public class CouchbaseCache implements Cache {
   @Override
   public final <T> T get(final Object key, final Class<T> clazz) {
     String documentId = getDocumentId(key.toString());
-	if(LOGGER.isDebugEnabled()) {
-		LOGGER.debug(new StringBuilder()
-				.append("Looking in cache bucket ")
-				.append(client.name())
-				.append(" for document ")
-				.append(documentId)
-				.toString());
-	}
-	
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug(new StringBuilder()
+              .append("Looking in cache bucket ")
+              .append(client.name())
+              .append(" for document ")
+              .append(documentId)
+              .toString());
+    }
+
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
 
     return (doc == null) ? null : (T) doc.content();
@@ -246,7 +239,7 @@ public class CouchbaseCache implements Cache {
    * <p>If the {@code valueLoader} throws an exception, it is wrapped in
    * a {@link RuntimeException}
    *
-   * @param key the key whose associated value is to be returned
+   * @param key         the key whose associated value is to be returned
    * @param valueLoader
    * @return the value to which this cache maps the specified key
    * @throws RuntimeException if the {@code valueLoader} throws an exception
@@ -255,16 +248,16 @@ public class CouchbaseCache implements Cache {
   @Override
   public <T> T get(final Object key, final Callable<T> valueLoader) {
     final String documentId = getDocumentId(key.toString());
-    
-	if(LOGGER.isDebugEnabled()) {
-		LOGGER.debug(new StringBuilder()
-				.append("Looking in cache bucket ")
-				.append(client.name())
-				.append(" for document ")
-				.append(documentId)
-				.toString());
-	}
-	
+
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug(new StringBuilder()
+              .append("Looking in cache bucket ")
+              .append(client.name())
+              .append(" for document ")
+              .append(documentId)
+              .toString());
+    }
+
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
     if (doc == null && valueLoader != null) {
       synchronized (client) {
@@ -294,7 +287,7 @@ public class CouchbaseCache implements Cache {
    * <p>
    * Values are expected to be {@link Serializable}.
    *
-   * @param key the Key of the storable object.
+   * @param key   the Key of the storable object.
    * @param value the Serializable object to store.
    */
   @Override
@@ -303,18 +296,18 @@ public class CouchbaseCache implements Cache {
       if (!(value instanceof Serializable)) {
         throw new IllegalArgumentException(String.format("Value %s of type %s is not Serializable", value.toString(), value.getClass().getName()));
       }
-      
+
       String documentId = getDocumentId(key.toString());
-  	  
-      if(LOGGER.isDebugEnabled()) {
-		  LOGGER.debug(new StringBuilder()
-				.append("Putting document ")
-				.append(documentId)
-				.append(" into cache bucket ")
-				.append(client.name())
-				.toString());
-	  }
-      
+
+      if (LOGGER.isDebugEnabled()) {
+        LOGGER.debug(new StringBuilder()
+                .append("Putting document ")
+                .append(documentId)
+                .append(" into cache bucket ")
+                .append(client.name())
+                .toString());
+      }
+
       SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
       client.upsert(doc);
     } else {
@@ -326,14 +319,14 @@ public class CouchbaseCache implements Cache {
   public final void evict(final Object key) {
     String documentId = getDocumentId(key.toString());
     try {
-    		client.remove(documentId);
-    		if(LOGGER.isDebugEnabled()) {
-    			LOGGER.debug("Evicted document: " + documentId);
-    		}
-    } catch(DocumentDoesNotExistException e) {
-    		if(LOGGER.isDebugEnabled()) {
-    			LOGGER.debug("Attempted to evict non-existent document: " + documentId);
-    		}
+      client.remove(documentId);
+      if (LOGGER.isDebugEnabled()) {
+        LOGGER.debug("Evicted document: " + documentId);
+      }
+    } catch (DocumentDoesNotExistException e) {
+      if (LOGGER.isDebugEnabled()) {
+        LOGGER.debug("Attempted to evict non-existent document: " + documentId);
+      }
     }
     return;
   }
@@ -352,7 +345,7 @@ public class CouchbaseCache implements Cache {
    */
   @Override
   public final void clear() {
-    if(getAlwaysFlush())
+    if (getAlwaysFlush())
       try {
         client.bucketManager().flush();
       } catch (Exception e) {
@@ -376,16 +369,16 @@ public class CouchbaseCache implements Cache {
       throw new IllegalArgumentException(String.format("Value %s of type %s is not Serializable", value.toString(), value.getClass().getName()));
     }
     String documentId = getDocumentId(key.toString());
-    
-    if(LOGGER.isDebugEnabled()) {
-		  LOGGER.debug(new StringBuilder()
-				.append("Putting (if absent) document ")
-				.append(documentId)
-				.append(" into cache bucket ")
-				.append(client.name())
-				.toString());
-	}
-    
+
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug(new StringBuilder()
+              .append("Putting (if absent) document ")
+              .append(documentId)
+              .append(" into cache bucket ")
+              .append(client.name())
+              .toString());
+    }
+
     SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
 
     try {
@@ -408,26 +401,26 @@ public class CouchbaseCache implements Cache {
    * @param key the cache key to transform to a Couchbase key.
    * @return the Couchbase key to use for storage.
    */
-	protected String getDocumentId(String key) {
-		StringBuilder keyBuilder = new StringBuilder(CACHE_PREFIX_LENGTH + this.nameLength + key.length() + 2);
+  protected String getDocumentId(String key) {
+    StringBuilder keyBuilder = new StringBuilder(CACHE_PREFIX_LENGTH + this.nameLength + key.length() + 2);
 
-		if (name == null || name.trim().length() == 0) {
-			keyBuilder.append(CACHE_PREFIX)
-				.append(DELIMITER)
-				.append(DELIMITER)
-				.append(key)
-				.toString();
-		} else {
-			keyBuilder.append(CACHE_PREFIX)
-				.append(DELIMITER)
-				.append(name)
-				.append(DELIMITER)
-				.append(key)
-				.toString();
-		}
+    if (name == null || name.trim().length() == 0) {
+      keyBuilder.append(CACHE_PREFIX)
+              .append(DELIMITER)
+              .append(DELIMITER)
+              .append(key)
+              .toString();
+    } else {
+      keyBuilder.append(CACHE_PREFIX)
+              .append(DELIMITER)
+              .append(name)
+              .append(DELIMITER)
+              .append(key)
+              .toString();
+    }
 
-		return keyBuilder.toString();
-	}
+    return keyBuilder.toString();
+  }
 
   /**
    * Interrogate the provided bucket to determine type, and use async View query
@@ -441,9 +434,8 @@ public class CouchbaseCache implements Cache {
    * <li>COUCHBASE buckets support Views AND N1QL, but continue to use async View
    * query for backward compatibility.</li>
    * </ul>
-   * 
-   * @throws UnsupportedOperationException
-   *             if MEMCACHED or unknown bucket type encountered.
+   *
+   * @throws UnsupportedOperationException if MEMCACHED or unknown bucket type encountered.
    */
   private void evictAllDocuments() {
 
@@ -453,8 +445,8 @@ public class CouchbaseCache implements Cache {
       evictAllDocumentsN1ql();
     } else if (BucketType.MEMCACHED == bucketType) {
       throw (new UnsupportedOperationException("Cannot use View or N1QL to evict all documents from bucket"
-          + this.name + "{" + bucketType
-          + "}; for MEMCACHED-type buckets, you must set setAlwaysFlush(true) and use clear() method instead."));
+              + this.name + "{" + bucketType
+              + "}; for MEMCACHED-type buckets, you must set setAlwaysFlush(true) and use clear() method instead."));
     } else if (BucketType.COUCHBASE == bucketType) {
       ViewQuery query = ViewQuery.from(CACHE_DESIGN_DOCUMENT, CACHE_VIEW);
       query.stale(Stale.FALSE);
@@ -465,15 +457,15 @@ public class CouchbaseCache implements Cache {
       }
 
       client.async().query(query).flatMap(ROW_IDS_OR_ERROR)
-          .flatMap(new Func1<String, Observable<? extends Document>>() {
-            @Override
-            public Observable<? extends Document> call(String id) {
-              return client.async().remove(id, SerializableDocument.class);
-            }
-          }).toBlocking().lastOrDefault(null); // ignore empty cache
+              .flatMap(new Func1<String, Observable<? extends Document>>() {
+                @Override
+                public Observable<? extends Document> call(String id) {
+                  return client.async().remove(id, SerializableDocument.class);
+                }
+              }).toBlocking().lastOrDefault(null); // ignore empty cache
     } else {
       throw (new UnsupportedOperationException(
-          "Unknown Couchbase BucketType encountered: " + bucketType + "; unable to evict documents."));
+              "Unknown Couchbase BucketType encountered: " + bucketType + "; unable to evict documents."));
     }
   }
 
@@ -483,11 +475,13 @@ public class CouchbaseCache implements Cache {
    * via @see ensureN1qlIndexExists().
    **/
   private void evictAllDocumentsN1ql() {
-    JsonObject namedParams = JsonObject.create().put("$bucketName", client.name()).put("$cachePrefix", CACHE_PREFIX)
-        .put("$cacheName", this.name);
+    JsonObject namedParams = JsonObject.create()
+            .put("$bucketName", client.name())
+            .put("$cachePrefix", CACHE_PREFIX)
+            .put("$cacheName", this.name);
 
     N1qlQuery n1qlQuery = N1qlQuery.parameterized(CACHE_CLEAR_N1QL_QUERY, namedParams,
-        N1qlParams.build().adhoc(false));
+            N1qlParams.build().adhoc(false));
     client.async().query(n1qlQuery);
   }
 
@@ -502,9 +496,8 @@ public class CouchbaseCache implements Cache {
    * <li>COUCHBASE buckets support Views AND N1QL, but continue to use Views for
    * backward compatibility.</li>
    * </ul>
-   * 
-   * @throws UnsupportedOperationException
-   *             if MEMCACHED or unknown bucket type encountered.
+   *
+   * @throws UnsupportedOperationException if MEMCACHED or unknown bucket type encountered.
    */
   private void ensureViewExists() {
     BucketManager bucketManager = client.bucketManager();
@@ -514,8 +507,8 @@ public class CouchbaseCache implements Cache {
       ensureN1qlIndexExists();
     } else if (BucketType.MEMCACHED == bucketType) {
       throw (new UnsupportedOperationException("Cannot use View or N1QL Index on configured Cache bucket "
-          + this.name + "{" + bucketType
-          + "}; for MEMCACHED-type buckets, you must set setAlwaysFlush(true) and use clear() method instead."));
+              + this.name + "{" + bucketType
+              + "}; for MEMCACHED-type buckets, you must set setAlwaysFlush(true) and use clear() method instead."));
 
     } else if (BucketType.COUCHBASE == bucketType) {
       DesignDocument doc = null;
@@ -536,7 +529,7 @@ public class CouchbaseCache implements Cache {
       }
 
       String function = "function (doc, meta) {var tokens = meta.id.split('" + DELIMITER
-          + "'); if(tokens.length > 2 && " + "tokens[0] == '" + CACHE_PREFIX + "') emit(tokens[1]);}";
+              + "'); if(tokens.length > 2 && " + "tokens[0] == '" + CACHE_PREFIX + "') emit(tokens[1]);}";
       View v = DefaultView.create(CACHE_VIEW, function);
 
       if (doc == null) {
@@ -550,7 +543,7 @@ public class CouchbaseCache implements Cache {
       bucketManager.upsertDesignDocument(doc);
     } else {
       throw (new UnsupportedOperationException(
-          "Unknown Couchbase BucketType encountered: " + bucketType + "; unable to prepare View or Index."));
+              "Unknown Couchbase BucketType encountered: " + bucketType + "; unable to prepare View or Index."));
     }
   }
 
@@ -559,19 +552,14 @@ public class CouchbaseCache implements Cache {
    * cache bucket. The secondary GSI will be the one that is responsible for
    * creating an optimized index around the first and second tokens of the cache
    * docIds (CACHE_PREFIX + ":" + CACHE_NAME + ":" + KEY).
-   * 
+   * <p>
    * Only used if the given bucket doesn't support View (i.e. Ephemeral Buckets).
-   * 
    */
   private void ensureN1qlIndexExists() {
 
     final String primaryIndexName = "CouchbaseCache_managed_primary_idx_" + client.name();
 
     client.bucketManager().createN1qlPrimaryIndex(primaryIndexName, true, false);
-
-    final String secondaryIndexName = "CouchbaseCache_managed_cachePrefixAndName_idx_" + client.name();
-
-    client.bucketManager().createN1qlIndex(secondaryIndexName, true, false, Expression.x(CACHE_CLEAR_N1QL_INDEX));
 
   }
 
@@ -598,44 +586,46 @@ public class CouchbaseCache implements Cache {
   }
 
 
-  /** Converts View Rows to the associated document's ID */
+  /**
+   * Converts View Rows to the associated document's ID
+   */
   private static final Func1<AsyncViewRow, String> ROW_TO_ID =
-      new Func1<AsyncViewRow, String>() {
-        @Override
-        public String call(AsyncViewRow asyncViewRow) {
-          return asyncViewRow.id();
-        }
-      };
+          new Func1<AsyncViewRow, String>() {
+            @Override
+            public String call(AsyncViewRow asyncViewRow) {
+              return asyncViewRow.id();
+            }
+          };
 
   /**
    * Converts a JsonObject view error into an Observable&lt;String&gt; that emits
    * a{@link com.couchbase.client.java.error.QueryExecutionException} wrapping the error.
    */
   private static final Func1<JsonObject, Observable<String>> JSON_TO_ONERROR =
-      new Func1<JsonObject, Observable<String>>() {
-        @Override
-        public Observable<String> call(JsonObject jsonError) {
-          return Observable.error(new QueryExecutionException(
-              "Error during view query execution: ", jsonError));
-        }
-      };
+          new Func1<JsonObject, Observable<String>>() {
+            @Override
+            public Observable<String> call(JsonObject jsonError) {
+              return Observable.error(new QueryExecutionException(
+                      "Error during view query execution: ", jsonError));
+            }
+          };
 
   /**
    * Out of an {@link AsyncViewResult}, extract the stream of document IDs or emit an error if unsuccessful.
    */
   private static Func1<AsyncViewResult, Observable<String>> ROW_IDS_OR_ERROR =
-      new Func1<AsyncViewResult, Observable<String>>() {
-          @Override
-          public Observable<String> call(AsyncViewResult asyncViewResult) {
-            if (asyncViewResult.success()) {
-              return asyncViewResult
-                  .rows()
-                  .map(ROW_TO_ID);
-            } else {
-              return asyncViewResult.error()
-                  .flatMap(JSON_TO_ONERROR);
+          new Func1<AsyncViewResult, Observable<String>>() {
+            @Override
+            public Observable<String> call(AsyncViewResult asyncViewResult) {
+              if (asyncViewResult.success()) {
+                return asyncViewResult
+                        .rows()
+                        .map(ROW_TO_ID);
+              } else {
+                return asyncViewResult.error()
+                        .flatMap(JSON_TO_ONERROR);
+              }
             }
-          }
-        };
+          };
 
 }
