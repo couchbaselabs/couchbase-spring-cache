@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.couchbase.client.spring.cache.wiring.xml;
+package com.couchbase.client.spring.cache.wiring.javaConfig.reactive;
 
-import com.couchbase.client.spring.cache.wiring.AbstractCouchbaseCacheWiringTest;
 import com.couchbase.client.spring.cache.wiring.CachedService;
+import com.couchbase.client.spring.cache.wiring.reactive.ReactiveAbstractCouchbaseCacheWiringTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.cache.annotation.Cacheable;
@@ -30,14 +30,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 /**
- * Test case for the xml driven configuration, wiring and execution of a {@link Cacheable}-annotated
+ * Test case for the annotation-driven configuration, wiring and execution of a {@link Cacheable}-annotated
  * {@link CachedService}.
  *
  * @author Simon Baslé
  */
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration({ "test-manager-context.xml"})
-public class CouchbaseCacheXmlWiringTest extends AbstractCouchbaseCacheWiringTest {
+@ContextConfiguration(classes = ReactiveCacheEnabledTestConfiguration.class)
+public class ReactiveCouchbaseCacheAnnotationWiringTest extends ReactiveAbstractCouchbaseCacheWiringTest {
 
   @Test
   public void testBeans() {
@@ -49,9 +49,6 @@ public class CouchbaseCacheXmlWiringTest extends AbstractCouchbaseCacheWiringTes
     assertNotNull(cacheManager);
 
     Set<String> expectedCaches = new HashSet<String>(3);
-    expectedCaches.add("staticCache1");
-    expectedCaches.add("staticCache2");
-    expectedCaches.add("staticCache3");
     expectedCaches.add("dataCache");
     assertEquals(expectedCaches, cacheManager.getCacheNames());
   }

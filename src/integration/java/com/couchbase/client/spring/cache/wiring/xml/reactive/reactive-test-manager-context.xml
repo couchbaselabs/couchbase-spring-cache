@@ -19,13 +19,13 @@
         <constructor-arg index="1" type="java.lang.String" value="password1"/>
     </bean>
 
-    <bean id="couchbaseCacheBuilder" class="com.couchbase.client.spring.cache.CacheBuilder"
+    <bean id="couchbaseCacheBuilder" class="com.couchbase.client.spring.cache.reactive.ReactiveCacheBuilder"
           factory-method="newInstance">
         <constructor-arg type="com.couchbase.client.java.Bucket" ref="couchbaseBucket"/>
     </bean>
 
-    <bean id="cacheManager" class="com.couchbase.client.spring.cache.CouchbaseCacheManager">
-        <constructor-arg type="com.couchbase.client.spring.cache.CacheBuilder" ref="couchbaseCacheBuilder"/>
+    <bean id="cacheManager" class="com.couchbase.client.spring.cache.reactive.ReactiveCouchbaseCacheManager">
+        <constructor-arg type="com.couchbase.client.spring.cache.reactive.ReactiveCacheBuilder" ref="couchbaseCacheBuilder"/>
         <constructor-arg>
             <list>
                 <!-- pre-declare caches you intend to use -->
@@ -37,7 +37,7 @@
         </constructor-arg>
     </bean>
 
-    <bean id="cachedService" class="com.couchbase.client.spring.cache.wiring.CachedService"/>
+    <bean id="cachedService" class="com.couchbase.client.spring.cache.wiring.reactive.ReactiveCachedService"/>
 
     <cache:annotation-driven/>
 

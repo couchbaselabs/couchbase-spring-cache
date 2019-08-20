@@ -55,6 +55,7 @@
         <spring.version>4.3.5.RELEASE</spring.version>
         <couchbase.version>2.3.6</couchbase.version>
         <slf4j.version>1.7.10</slf4j.version>
+        <reactor.version>3.2.11.RELEASE</reactor.version>
 
         <junit.version>4.12</junit.version>
         <hamcrest.version>1.3</hamcrest.version>
@@ -71,6 +72,13 @@
             <artifactId>java-client</artifactId>
             <version>${couchbase.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <version>${reactor.version}</version>
+        </dependency>
+
 
         <dependency>
             <groupId>junit</groupId>
