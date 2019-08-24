@@ -15,10 +15,10 @@
  */
 package com.couchbase.client.spring.cache.wiring.javaConfig.reactive;
 
+import com.couchbase.client.spring.cache.TestConfiguration;
 import com.couchbase.client.spring.cache.reactive.ReactiveCacheBuilder;
 import com.couchbase.client.spring.cache.reactive.ReactiveCouchbaseCacheManager;
-import com.couchbase.client.spring.cache.TestConfiguration;
-import com.couchbase.client.spring.cache.wiring.CachedService;
+import com.couchbase.client.spring.cache.wiring.reactive.ReactiveCachedService;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -32,7 +32,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @EnableCaching
 @Configuration
-@ComponentScan(basePackageClasses = CachedService.class)
+@ComponentScan(basePackageClasses = ReactiveCachedService.class)
 public class ReactiveCacheEnabledTestConfiguration extends TestConfiguration {
   
   public static final String DATA_CACHE_NAME = "dataCache";

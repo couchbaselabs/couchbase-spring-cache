@@ -21,6 +21,7 @@ import com.couchbase.client.spring.cache.reactive.ReactiveCacheBuilder;
 import com.couchbase.client.spring.cache.reactive.ReactiveCouchbaseCacheManager;
 import com.couchbase.client.spring.cache.wiring.CachedService;
 import com.couchbase.client.spring.cache.wiring.javaConfig.CacheEnabledTestConfiguration;
+import com.couchbase.client.spring.cache.wiring.javaConfig.reactive.ReactiveCacheEnabledTestConfiguration;
 import org.junit.After;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -165,7 +166,7 @@ public abstract class ReactiveAbstractCouchbaseCacheWiringTest {
     
     
     private static String cbKey(Object cacheKey) {
-        return "cache:" + CacheEnabledTestConfiguration.DATA_CACHE_NAME
+        return "cache:" + ReactiveCacheEnabledTestConfiguration.DATA_CACHE_NAME
                 + ":" + String.valueOf(cacheKey);
     }
 }
