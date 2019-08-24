@@ -25,6 +25,24 @@ Notice how the `CacheBuilder` allows you to describe how the `Cache` is backed b
 
 Note that for now **only buckets of type "`couchbase`" are supported**, so that several caches can be created over the same `Bucket` and still cleared independently.
 
+## Reactive Usage
+Instantiate a `ReactiveCouchbaseCacheManager` using `ReactiveCacheBuilder` to either create several caches sharing the same template or a map of builders to individually customize several preloaded caches.
+
+```java
+//preloaded cache manager, same configs
+new ReactiveCouchbaseCacheManager(new ReactiveCacheBuilder().withBucket(bucket), "cache1", "cache2");
+
+//preloaded cache manager, custom configs
+Map<String, ReactiveCacheBuilder> caches = new HashMap<String, ReactiveCacheBuilder>();
+caches.put("cacheA", new ReactiveCacheBuilder().withBucket(bucket).withExpiration(2));
+caches.put("cacheB", new ReactiveCacheBuilder().withBucket(bucket2).withExpiration(3));
+new ReactiveCouchbaseCacheManager(caches);
+
+//dynamic-capable cache manager
+//no cache is preloaded but it will create them on demand using the builder as a template
+new ReactiveCouchbaseCacheManager(new ReactiveCacheBuilder().withBucket(bucket).withExpiration(1));
+```
+
 ## How to get it: how to build
 Release 2.0.0 is available on Maven Central. Edit your `pom.xml` and add the following dependency in the `dependencies` section:
 
