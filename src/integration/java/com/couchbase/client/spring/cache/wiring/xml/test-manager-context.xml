@@ -16,7 +16,7 @@
           factory-bean="couchbaseCluster" factory-method="openBucket">
         <!-- specify the bucket and password to use -->
         <constructor-arg index="0" type="java.lang.String" value="default"/>
-        <constructor-arg index="1" type="java.lang.String" value="password1"/>
+        <constructor-arg index="1" type="java.lang.String" value=""/>
     </bean>
 
     <bean id="couchbaseCacheBuilder" class="com.couchbase.client.spring.cache.CacheBuilder"

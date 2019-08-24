@@ -38,7 +38,7 @@ public class TestConfiguration {
     return System.getProperty("couchbase.bucketName", "default");
   }
   public String bucketPassword() {
-    return System.getProperty("couchbase.bucketPassword", "password1");
+    return System.getProperty("couchbase.bucketPassword", "");
   }
 
   @Bean(destroyMethod = "disconnect")
