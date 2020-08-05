@@ -1,4 +1,11 @@
-# couchbase-spring-cache 2.1.0
+# couchbase-spring-cache
+
+
+- - - - 
+IMPORTANT: Spring Cache support has been merged with spring-data-couchbase: https://github.com/spring-projects/spring-data-couchbase. Just import spring-data-couchbase and you will find the spring cache modules under the `org.springframework.data.couchbase.cache` namespace!
+- - - -
+
+
 An implementation for Spring Cache based on Couchbase Java SDK 2.x
 
 Suitable to work with Spring Data Couchbase 2.0.x and above, as the two projects can share the same backing SDK `Cluster` and `Bucket`s. This is especially awesome for Spring Boot apps (both Spring Data Couchbase and Couchbase Spring Cache are included in Spring Boot 1.4.0 and up).
