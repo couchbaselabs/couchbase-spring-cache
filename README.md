@@ -2,7 +2,7 @@
 
 
 - - - - 
-IMPORTANT: Spring Cache support has been merged with spring-data-couchbase: https://github.com/spring-projects/spring-data-couchbase. Just import spring-data-couchbase and you will find the spring cache modules under the `org.springframework.data.couchbase.cache` namespace!
+**IMPORTANT: Spring Cache support has been merged with spring-data-couchbase: https://github.com/spring-projects/spring-data-couchbase. Just import spring-data-couchbase and you will find the spring cache modules under the `org.springframework.data.couchbase.cache` namespace!**
 - - - -
 
 
