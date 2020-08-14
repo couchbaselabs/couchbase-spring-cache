@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package com.couchbase.client.spring.cache;
+package com.couchbase.client.spring.cache.reactive;
 
 import com.couchbase.client.java.Bucket;
+import com.couchbase.client.spring.cache.CouchbaseCache;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.support.AbstractCacheManager;
@@ -32,25 +33,25 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The {@link CouchbaseCacheManager} orchestrates {@link CouchbaseCache} instances.
- *
+ * The {@link ReactiveCouchbaseCacheManager} orchestrates {@link CouchbaseCache} instances.
+ * 
  * Since more than one current {@link Bucket} connection can be used for caching, the
- * {@link CouchbaseCacheManager} orchestrates and handles them for the Spring {@link Cache} abstraction layer.
+ * {@link ReactiveCouchbaseCacheManager} orchestrates and handles them for the Spring {@link Cache} abstraction layer.
  *
  * @author Michael Nitschinger
  * @author Simon Baslé
  * @author Konrad Król
  * @author Stéphane Nicoll
  */
-public class CouchbaseCacheManager extends AbstractCacheManager {
+public class ReactiveCouchbaseCacheManager extends AbstractCacheManager {
 
-  private CacheBuilder defaultCacheBuilder;
+  private ReactiveCacheBuilder defaultCacheBuilder;
 
   private boolean initialized;
-  private final Map<String, CacheBuilder> initialCaches;
+  private final Map<String, ReactiveCacheBuilder> initialCaches;
 
   /**
-   * Construct a {@link CacheManager} with a "template" {@link CacheBuilder} (at least specifying a backing
+   * Construct a {@link CacheManager} with a "template" {@link ReactiveCacheBuilder} (at least specifying a backing
    * {@link Bucket}).
    *
    * If a list of predetermined cache names is provided, the manager is "static" and these caches will all be
@@ -65,15 +66,15 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
    * caches or later dynamic construction.
    * @param cacheNames the names of caches recognized by this manager initially. If empty, caches can be added
    * dynamically later. Null names will be ignored.
-   * @see CouchbaseCacheManager#setDefaultCacheBuilder(CacheBuilder) to force activation of dynamic creation later on.
+   * @see ReactiveCouchbaseCacheManager#setDefaultCacheBuilder(ReactiveCacheBuilder) to force activation of dynamic creation later on.
    */
-  public CouchbaseCacheManager(CacheBuilder cacheBuilder, String... cacheNames) {
+  public ReactiveCouchbaseCacheManager(ReactiveCacheBuilder cacheBuilder, String... cacheNames) {
     if (cacheBuilder == null) {
-      throw new NullPointerException("CacheBuilder template is mandatory");
+      throw new NullPointerException("ReactiveCacheBuilder template is mandatory");
     }
     Set<String> names = cacheNames.length == 0? Collections.<String> emptySet()
             : new LinkedHashSet<String>(Arrays.asList(cacheNames));
-    this.initialCaches = new HashMap<String, CacheBuilder>(names.size());
+    this.initialCaches = new HashMap<String, ReactiveCacheBuilder>(names.size());
     for (String name : names) {
       if (name != null) {
         this.initialCaches.put(name, cacheBuilder);
@@ -86,18 +87,18 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
 
   /**
    * Construct a {@link CacheManager} knowing about a predetermined set of caches at construction. The caches are
-   * all explicitly described (using a {@link CacheBuilder} and the manager cannot create caches dynamically until
-   * {@link #setDefaultCacheBuilder(CacheBuilder)} is called.
+   * all explicitly described (using a {@link ReactiveCacheBuilder} and the manager cannot create caches dynamically until
+   * {@link #setDefaultCacheBuilder(ReactiveCacheBuilder)} is called.
    *
    * Note that builders are used lazily and should not be mutated after having been passed to this constructor.
    *
    * @param initialCaches the caches to make available on startup
    */
-  public CouchbaseCacheManager(Map<String, CacheBuilder> initialCaches) {
+  public ReactiveCouchbaseCacheManager(Map<String, ReactiveCacheBuilder> initialCaches) {
     if (initialCaches == null || initialCaches.isEmpty()) {
       throw new IllegalArgumentException("At least one cache builder must be specified.");
     }
-    this.initialCaches = new HashMap<String, CacheBuilder>(initialCaches);
+    this.initialCaches = new HashMap<String, ReactiveCacheBuilder>(initialCaches);
   }
 
   /**
@@ -106,7 +107,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
    *
    * @param defaultCacheBuilder the cache builder to use
    */
-  public void setDefaultCacheBuilder(CacheBuilder defaultCacheBuilder) {
+  public void setDefaultCacheBuilder(ReactiveCacheBuilder defaultCacheBuilder) {
     this.defaultCacheBuilder = defaultCacheBuilder;
   }
 
@@ -128,7 +129,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
 
   /**
    * Register an additional cache with the specified name using the specified
-   * {@link CacheBuilder}.
+   * {@link ReactiveCacheBuilder}.
    * <p>
    * Caches can only be configured at initialization time. Once the cache manager
    * has been initialized, no cache can be further prepared.
@@ -136,7 +137,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
    * @param builder builder
    * @throws IllegalStateException the cache manager has already been initialized
    */
-  public void prepareCache(String name, CacheBuilder builder) {
+  public void prepareCache(String name, ReactiveCacheBuilder builder) {
     if (initialized) {
       throw new IllegalStateException("This cache manager has already been initialized. No " +
               "further cache can be prepared.");
@@ -153,7 +154,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
   protected final Collection<? extends Cache> loadCaches() {
     initialized = true;
     List<Cache> caches = new LinkedList<Cache>();
-    for (Map.Entry<String, CacheBuilder> entry : initialCaches.entrySet()) {
+    for (Map.Entry<String, ReactiveCacheBuilder> entry : initialCaches.entrySet()) {
       caches.add(entry.getValue().build(entry.getKey()));
     }
     return caches;

@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.couchbase.client.spring.cache.wiring.xml;
+package com.couchbase.client.spring.cache.wiring.xml.reactive;
 
-import com.couchbase.client.spring.cache.wiring.AbstractCouchbaseCacheWiringTest;
 import com.couchbase.client.spring.cache.wiring.CachedService;
+import com.couchbase.client.spring.cache.wiring.reactive.ReactiveAbstractCouchbaseCacheWiringTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.cache.annotation.Cacheable;
@@ -36,8 +36,8 @@ import static org.junit.Assert.assertNotNull;
  * @author Simon Baslé
  */
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration({ "test-manager-context.xml"})
-public class CouchbaseCacheXmlWiringTest extends AbstractCouchbaseCacheWiringTest {
+@ContextConfiguration({ "reactive-test-manager-context.xml"})
+public class ReactiveCouchbaseCacheXmlWiringTest extends ReactiveAbstractCouchbaseCacheWiringTest {
 
   @Test
   public void testBeans() {

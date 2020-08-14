@@ -16,11 +16,6 @@
 
 package com.couchbase.client.spring.cache;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
-
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.bucket.BucketManager;
 import com.couchbase.client.java.document.Document;
@@ -37,11 +32,15 @@ import com.couchbase.client.java.view.View;
 import com.couchbase.client.java.view.ViewQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.Cache;
+import org.springframework.cache.support.SimpleValueWrapper;
 import rx.Observable;
 import rx.functions.Func1;
 
-import org.springframework.cache.Cache;
-import org.springframework.cache.support.SimpleValueWrapper;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
 
 /**
  * The {@link CouchbaseCache} class implements the Spring {@link Cache} interface on top of Couchbase Server and the
@@ -200,7 +199,7 @@ public class CouchbaseCache implements Cache {
    * a {@link RuntimeException}
    *
    * @param key the key whose associated value is to be returned
-   * @param valueLoader
+   * @param valueLoader valueLoader
    * @return the value to which this cache maps the specified key
    * @throws RuntimeException if the {@code valueLoader} throws an exception
    * @since 4.3
