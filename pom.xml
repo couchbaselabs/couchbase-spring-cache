@@ -5,7 +5,7 @@
 
     <groupId>com.couchbase.client</groupId>
     <artifactId>couchbase-spring-cache</artifactId>
-    <version>2.7.14</version>
+    <version>2.7.16</version>
     <packaging>jar</packaging>
 
     <name>Couchbase Spring Cache</name>
@@ -50,10 +50,10 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>1.6</java.version>
+        <java.version>11</java.version>
 
         <spring.version>4.3.5.RELEASE</spring.version>
-        <couchbase.version>2.7.14</couchbase.version>
+        <couchbase.version>2.7.16</couchbase.version>
         <slf4j.version>1.7.10</slf4j.version>
 
         <junit.version>4.12</junit.version>
@@ -138,7 +138,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.10.3</version>
+                <version>3.2.0</version>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>

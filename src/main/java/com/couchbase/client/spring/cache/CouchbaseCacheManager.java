@@ -126,6 +126,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
    * Caches can only be configured at initialization time. Once the cache manager
    * has been initialized, no cache can be further prepared.
    * @param name the name of the cache to add
+   * @param builder CacheBuildercp
    * @throws IllegalStateException the cache manager has already been initialized
    */
   public void prepareCache(String name, CacheBuilder builder) {

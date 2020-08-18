@@ -234,7 +234,7 @@ public class CouchbaseCache implements Cache {
    * a {@link RuntimeException}
    *
    * @param key         the key whose associated value is to be returned
-   * @param valueLoader
+   * @param valueLoader loader for the given keu
    * @return the value to which this cache maps the specified key
    * @throws RuntimeException if the {@code valueLoader} throws an exception
    * @since 4.3
