@@ -59,6 +59,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
    *
    * @param cacheBuilder the template (backing client, optional ttl) to use either for static construction of specified
    * caches or later dynamic construction.
+   * @param enabled The initial value of {@link #setAllEnabled(boolean)}
    * @param cacheNames the names of caches recognized by this manager initially. If empty, caches can be added
    * dynamically later. Null names will be ignored.
    * @see CouchbaseCacheManager#setDefaultCacheBuilder(CacheBuilder) to force activation of dynamic creation later on.

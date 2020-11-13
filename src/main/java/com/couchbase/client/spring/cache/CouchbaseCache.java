@@ -197,7 +197,7 @@ public class CouchbaseCache implements EnableableCache {
    * will return null as though the item were not already in the cache.
    * {@link #evict(Object)}} and {@link #clear()} still do actual manipulations to the underlying datastore.
    * (This is relevant if other cluster instances are manipulating the same store.)
-   * @param enabled
+   * @param enabled The value for the enabled state
    */
   @Override
   public void setEnabled(boolean enabled) {
