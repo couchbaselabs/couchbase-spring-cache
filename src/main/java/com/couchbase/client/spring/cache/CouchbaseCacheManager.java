@@ -24,6 +24,8 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.support.AbstractCacheManager;
 
+import static java.util.stream.Collectors.toSet;
+
 /**
  * The {@link CouchbaseCacheManager} orchestrates {@link CouchbaseCache} instances.
  * 
@@ -41,6 +43,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
 
   private boolean initialized;
   private final Map<String, CacheBuilder> initialCaches;
+  private boolean enabled = true;
 
   /**
    * Construct a {@link CacheManager} with a "template" {@link CacheBuilder} (at least specifying a backing
@@ -60,7 +63,7 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
    * dynamically later. Null names will be ignored.
    * @see CouchbaseCacheManager#setDefaultCacheBuilder(CacheBuilder) to force activation of dynamic creation later on.
    */
-  public CouchbaseCacheManager(CacheBuilder cacheBuilder, String... cacheNames) {
+  public CouchbaseCacheManager(CacheBuilder cacheBuilder, boolean enabled, String... cacheNames) {
     if (cacheBuilder == null) {
       throw new NullPointerException("CacheBuilder template is mandatory");
     }
@@ -75,6 +78,12 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
     if (this.initialCaches.isEmpty()) {
       this.defaultCacheBuilder = cacheBuilder;
     }
+    // Individual caches to be set after loadCaches()
+    this.enabled = enabled;
+  }
+
+  public CouchbaseCacheManager(CacheBuilder cacheBuilder, String... cacheNames) {
+    this(cacheBuilder, true, cacheNames);
   }
 
   /**
@@ -149,7 +158,36 @@ public class CouchbaseCacheManager extends AbstractCacheManager {
     for (Map.Entry<String, CacheBuilder> entry : initialCaches.entrySet()) {
       caches.add(entry.getValue().build(entry.getKey()));
     }
+    setAllEnabled(this.enabled);
     return caches;
+  }
+
+  public void clearAll() {
+    this.getCacheNames().forEach(name -> {
+      this.getCache(name).clear();
+    });
+  }
+
+  private Set<EnableableCache> getEnableableCaches() {
+    return this.getCacheNames()
+            .stream()
+            .map(this::getCache)
+            .filter(cache -> cache instanceof EnableableCache)
+            .map(cache -> (EnableableCache) cache)
+            .collect(toSet());
+  }
+
+  public void setAllEnabled(boolean enabled) {
+    this.enabled = enabled;
+    getEnableableCaches()
+            .forEach(cache -> cache.setEnabled(enabled));
+  }
+
+  public boolean areAllEnabled() {
+    //Anything that isn't an EnableableCache is automatically considered enabled.
+    return getEnableableCaches()
+            .stream()
+            .allMatch(EnableableCache::isEnabled);
   }
 
 }

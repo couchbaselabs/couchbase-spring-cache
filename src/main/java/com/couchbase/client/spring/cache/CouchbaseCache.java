@@ -64,7 +64,7 @@ import static com.couchbase.client.java.query.dsl.Expression.x;
  * @see <a href="http://static.springsource.org/spring/docs/current/spring-framework-reference/html/cache.html">
  * Official Spring Cache Reference</a>
  */
-public class CouchbaseCache implements Cache {
+public class CouchbaseCache implements EnableableCache {
 
   private static final ValueWrapper EMPTY_WRAPPER = new SimpleValueWrapper(null);
   private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseCache.class);
@@ -72,6 +72,8 @@ public class CouchbaseCache implements Cache {
    * The actual SDK {@link Bucket} instance.
    */
   private final Bucket client;
+
+  private boolean enabled = true;
 
   /**
    * The name of the cache.
@@ -176,16 +178,47 @@ public class CouchbaseCache implements Cache {
     return ttl;
   }
 
+  /**
+   * Returns whether or not the cache is enabled. A disabled cache will simulate a {@link #getTtl()} of 0.
+   * Calls to {@link #put(Object, Object)} will noop without error, and calls to{@link #putIfAbsent(Object, Object)
+   * will return null as though the item were not already in the cache.
+   * {@link #evict(Object)}} and {@link #clear()} still do actual manipulations to the underlying datastore.
+   * (This is relevant if other cluster instances are manipulating the same store.)
+   * @return The enabled state of the cache.
+   */
+  @Override
+  public boolean isEnabled() {
+    return this.enabled;
+  }
+
+  /**
+   * Sets whether or not the cache is enabled. A disabled cache will simulate a {@link #getTtl()} of 0.
+   * Calls to {@link #put(Object, Object)} will noop without error, and calls to{@link #putIfAbsent(Object, Object)
+   * will return null as though the item were not already in the cache.
+   * {@link #evict(Object)}} and {@link #clear()} still do actual manipulations to the underlying datastore.
+   * (This is relevant if other cluster instances are manipulating the same store.)
+   * @param enabled
+   */
+  @Override
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
+  }
+
   @Override
   public final ValueWrapper get(final Object key) {
     String documentId = getDocumentId(key.toString());
     if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug(new StringBuilder()
-              .append("Looking in cache bucket ")
-              .append(client.name())
-              .append(" for document ")
-              .append(documentId)
-              .toString());
+      final String msg;
+      if (enabled) {
+        msg = String.format("Looking in cache bucket %s for document %s ", client.name(), documentId);
+      } else {
+        msg = String.format("Disabled cache returning a miss from %s for document %s", client.name(), documentId);
+      }
+      LOGGER.debug(msg);
+    }
+
+    if (!enabled) {
+      return null;
     }
 
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
@@ -209,12 +242,17 @@ public class CouchbaseCache implements Cache {
   public final <T> T get(final Object key, final Class<T> clazz) {
     String documentId = getDocumentId(key.toString());
     if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug(new StringBuilder()
-              .append("Looking in cache bucket ")
-              .append(client.name())
-              .append(" for document ")
-              .append(documentId)
-              .toString());
+      final String msg;
+      if (enabled) {
+        msg = String.format("Looking in cache bucket %s for document %s ", client.name(), documentId);
+      } else {
+        msg = String.format("Disabled cache returning a miss from %s for document %s", client.name(), documentId);
+      }
+      LOGGER.debug(msg);
+    }
+
+    if (!enabled) {
+      return null;
     }
 
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
@@ -244,12 +282,27 @@ public class CouchbaseCache implements Cache {
     final String documentId = getDocumentId(key.toString());
 
     if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug(new StringBuilder()
-              .append("Looking in cache bucket ")
-              .append(client.name())
-              .append(" for document ")
-              .append(documentId)
-              .toString());
+      final String msg;
+      if (enabled) {
+        msg = String.format("Looking in cache bucket %s for document %s ", client.name(), documentId);
+      } else {
+        msg = String.format("Disabled cache returning a miss from %s for document %s", client.name(), documentId);
+      }
+      LOGGER.debug(msg);
+    }
+
+    if (!enabled) {
+      if (valueLoader == null) {
+        return null;
+      } else {
+        try {
+          return valueLoader.call();
+        } catch (ValueRetrievalException ex) {
+          throw ex;
+        } catch (Exception e) {
+          throw new ValueRetrievalException(key, valueLoader, e);
+        }
+      }
     }
 
     SerializableDocument doc = client.get(documentId, SerializableDocument.class);
@@ -294,16 +347,19 @@ public class CouchbaseCache implements Cache {
       String documentId = getDocumentId(key.toString());
 
       if (LOGGER.isDebugEnabled()) {
-        LOGGER.debug(new StringBuilder()
-                .append("Putting document ")
-                .append(documentId)
-                .append(" into cache bucket ")
-                .append(client.name())
-                .toString());
+        final String msg;
+        if (enabled) {
+          msg = String.format("Putting document %s into cache bucket %s", documentId, client.name());
+        } else {
+          msg = String.format("Disabled cache not adding document %s to cache bucket %s", documentId, client.name());
+        }
+        LOGGER.debug(msg);
       }
 
-      SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
-      client.upsert(doc);
+      if (enabled) {
+        SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
+        client.upsert(doc);
+      }
     } else {
       evict(key);
     }
@@ -365,18 +421,21 @@ public class CouchbaseCache implements Cache {
     String documentId = getDocumentId(key.toString());
 
     if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug(new StringBuilder()
-              .append("Putting (if absent) document ")
-              .append(documentId)
-              .append(" into cache bucket ")
-              .append(client.name())
-              .toString());
+      final String msg;
+      if (enabled) {
+        msg = String.format("Putting (if absent) document %s into cache bucket %s", documentId, client.name());
+      } else {
+        msg = String.format("Disabled cache not putting document %s into cache bucket %s", documentId, client.name());
+      }
+      LOGGER.debug(msg);
     }
 
     SerializableDocument doc = SerializableDocument.create(documentId, ttl, (Serializable) value);
 
     try {
-      client.insert(doc);
+      if (enabled) {
+        client.insert(doc);
+      }
       return null;
     } catch (DocumentAlreadyExistsException e) {
       SerializableDocument existingDoc = client.get(documentId, SerializableDocument.class);
